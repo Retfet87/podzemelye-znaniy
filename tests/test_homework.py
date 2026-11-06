@@ -126,7 +126,7 @@ class HomeworkTests(unittest.TestCase):
     def test_stage_four_upgrade_preserves_data_and_runs_once(self):
         with self.store.connect() as conn:
             remove_homework_fixture(conn)
-        self.assertEqual(migrate(self.store), ["004_homework.sql"])
+        self.assertEqual(migrate(self.store), ["004_homework.sql", "005_community.sql"])
         self.assertEqual(migrate(self.store), [])
         self.assertEqual(self.store.registered_group(10), "А-01")
         self.assertEqual(self.member.subjects(self.a, False), [("Математика",)])

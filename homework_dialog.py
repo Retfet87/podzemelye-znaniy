@@ -23,11 +23,11 @@ def number(value, *, zero=False):
     return result
 
 
-def keyboard(buttons):
+def keyboard(buttons, *, prefix="hw:"):
     if not buttons:
         return []
     return [{"type": "inline_keyboard", "payload": {"buttons": [
-        [{"type": "callback", "text": label[:70], "payload": "hw:" + payload}]
+        [{"type": "callback", "text": label[:70], "payload": prefix + payload}]
         for label, payload in buttons
     ]}}]
 

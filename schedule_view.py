@@ -23,6 +23,10 @@ HOME = keyboard((("Расписание", "open"),))
 HOME[0]["payload"]["buttons"].append([
     {"type": "callback", "text": "Домашние задания", "payload": "hw:open"},
 ])
+HOME[0]["payload"]["buttons"].append([
+    {"type": "callback", "text": "Мероприятия", "payload": "community:events:0"},
+    {"type": "callback", "text": "Полезное", "payload": "community:useful"},
+])
 MENU = keyboard((("Сегодня", "today"), ("Завтра", "tomorrow")),
                 (("Неделя", "week"), ("Назад", "back")))
 PERIODS = {"today", "tomorrow", "week"}

@@ -10,6 +10,7 @@ from urllib.parse import urlencode
 
 import psycopg
 
+from community_dialog import CommunityDialog
 from db import RegistrationStore, local_dsn
 from homework_dialog import HomeworkDialog
 from homework_files import receive_file, upload_file
@@ -228,16 +229,22 @@ def handle_admin(client, store, update, administrator):
     return True
 
 
-def handle_update(client, store, update, administrator=None, homework=None):
+def handle_update(client, store, update, administrator=None, homework=None, community=None):
     if handle_admin(client, store, update, administrator):
         return
     update = as_object(update)
     event_message = as_object(update.get("message"))
     private = as_object(event_message.get("recipient")).get("chat_type") == "dialog"
-    if homework and private and update.get("update_type") == "message_created":
+    if private and update.get("update_type") == "message_created":
         actor = max_user_id(event_message.get("sender"))
-        if actor and homework.handle(client, store, actor, administrator,
-                                     body=as_object(event_message.get("body"))):
+        body = as_object(event_message.get("body"))
+        if actor and community and community.handle(client, store, actor, administrator, body=body):
+            if homework and actor in community.drafts:
+                homework.drafts.pop(actor, None)
+            return
+        if actor and homework and homework.handle(client, store, actor, administrator, body=body):
+            if community and actor in homework.drafts:
+                community.drafts.pop(actor, None)
             return
     message = start_message(update)
     if message is not None:
@@ -282,12 +289,23 @@ def handle_update(client, store, update, administrator=None, homework=None):
         return
     if not isinstance(payload, str):
         return
+    if payload.startswith("community:"):
+        if not private or community is None:
+            client.answer(callback_id, notification="Открой раздел в личном диалоге с ботом.")
+        else:
+            community.handle(client, store, user_id, administrator,
+                             payload=payload.removeprefix("community:"), callback_id=callback_id)
+            if homework and user_id in community.drafts:
+                homework.drafts.pop(user_id, None)
+        return
     if payload.startswith("hw:"):
         if not private or homework is None:
             client.answer(callback_id, notification="Открой задания в личном диалоге с ботом.")
         else:
             homework.handle(client, store, user_id, administrator,
                             payload=payload[3:], callback_id=callback_id)
+            if community and user_id in homework.drafts:
+                community.drafts.pop(user_id, None)
         return
     if payload.startswith("schedule:"):
         message = as_object(update.get("message"))
@@ -344,6 +362,7 @@ def handle_schedule(client, store, callback_id, user_id, action):
 
 def run_polling(client, store, administrator=None):
     homework = HomeworkDialog()
+    community = CommunityDialog()
     marker = None
     retry_delay = 2
     connected = False
@@ -368,7 +387,7 @@ def run_polling(client, store, administrator=None):
 
         for update in updates:
             try:
-                handle_update(client, store, update, administrator, homework)
+                handle_update(client, store, update, administrator, homework, community)
             except MaxError as error:
                 if error.status in (None, 401, 403) and not error.retryable:
                     raise
@@ -426,9 +445,10 @@ def main():
     worker = None
     schedule_enabled = config.get("SCHEDULE_NOTIFICATIONS_ENABLED") == "1"
     homework_enabled = config.get("HOMEWORK_NOTIFICATIONS_ENABLED") == "1"
-    if schedule_enabled or homework_enabled:
+    events_enabled = config.get("EVENT_NOTIFICATIONS_ENABLED") == "1"
+    if schedule_enabled or homework_enabled or events_enabled:
         worker = Thread(target=work_notifications, args=(store, client.send_message, MaxError, stop),
-                        kwargs={"schedule": schedule_enabled, "homework": homework_enabled},
+                        kwargs={"schedule": schedule_enabled, "homework": homework_enabled, "events": events_enabled},
                         name="notifications", daemon=True)
         worker.start()
     try:

@@ -4,6 +4,8 @@ import logging
 import psycopg
 from psycopg import sql
 
+import event_notifications
+from community import EVENT_LOCK
 from homework_notifications import next_job, notification_body, prepare
 
 logger = logging.getLogger(__name__)
@@ -11,7 +13,7 @@ WORKER_LOCK = 281952766
 MAX_ATTEMPTS = 5
 
 
-def deliver_one(store, send, max_error, *, homework=True, schedule=True):
+def deliver_one(store, send, max_error, *, homework=True, schedule=True, events=False):
     with store.connect() as conn:
         if not conn.execute("SELECT pg_try_advisory_lock(%s)", (WORKER_LOCK,)).fetchone()[0]:
             return False
@@ -19,13 +21,23 @@ def deliver_one(store, send, max_error, *, homework=True, schedule=True):
             # Hold through delivery so deletion, edits and preference updates serialize with sends.
             conn.execute("SELECT pg_advisory_lock(281952767)")
             prepare(conn)
+        if events:
+            conn.execute("SELECT pg_advisory_lock(%s)", (EVENT_LOCK,))
+            event_notifications.prepare(conn)
         if schedule:
             expire_schedule(conn)
         if not conn.execute("SELECT next_send <= now() FROM schedule_notification_rate").fetchone()[0]:
             return False
         shared = next_schedule(conn) if schedule else None
         task = next_job(conn) if homework else None
-        if task and (not shared or task[3] < shared[5]):
+        event = event_notifications.next_job(conn) if events else None
+        if event and (not task or event[3] <= task[3]) and (not shared or event[3] <= shared[5]):
+            job, user, attempts, _, body, eligible = event
+            table = "event_notifications"
+            condition = sql.SQL("id = %s")
+            key = (job,)
+            skip_reason = "ineligible"
+        elif task and (not shared or task[3] < shared[5]):
             job, user, attempts, _, subject, deadline, kind, group, eligible = task
             table = "homework_notifications"
             condition = sql.SQL("id = %s")
@@ -114,10 +126,10 @@ def send_job(conn, send, max_error, table, condition, key, user, body, attempts,
     return True
 
 
-def work_notifications(store, send, max_error, stop, *, homework=True, schedule=True):
+def work_notifications(store, send, max_error, stop, *, homework=True, schedule=True, events=False):
     while not stop.is_set():
         try:
-            worked = deliver_one(store, send, max_error, homework=homework, schedule=schedule)
+            worked = deliver_one(store, send, max_error, homework=homework, schedule=schedule, events=events)
         except psycopg.Error:
             logger.warning("PostgreSQL: очередь уведомлений временно недоступна.")
             worked = False
