@@ -16,7 +16,7 @@ from schedule_import import Lesson, parse_xls
 from schedule_notifications import deliver_one
 from schedule_updates import admin_id, compare, day_slots, decide, preview
 from schedule_view import SAMARA
-from test_db import TEST_URL, LegacyFixtureStore
+from test_db import TEST_URL, LegacyFixtureStore, remove_homework_fixture
 from test_main import message_update
 
 
@@ -165,6 +165,7 @@ class PublicationTests(unittest.TestCase):
 
     def test_upgrade_preserves_an_existing_stage_three_import(self):
         with self.store.connect() as conn:
+            remove_homework_fixture(conn)
             conn.execute("DROP TABLE schedule_notification_rate, schedule_notifications, schedule_changes")
             conn.execute("ALTER TABLE schedule_imports DROP COLUMN preview_token, "
                          "DROP COLUMN scope, DROP COLUMN published_at")
@@ -173,7 +174,7 @@ class PublicationTests(unittest.TestCase):
                          "(source_sha256, valid_from, valid_to, numerator_monday)")
             conn.execute("DELETE FROM schema_migrations WHERE version = %s",
                          ("003_schedule_updates.sql",))
-        self.assertEqual(migrate(self.store), ["003_schedule_updates.sql"])
+        self.assertEqual(migrate(self.store), ["003_schedule_updates.sql", "004_homework.sql"])
         self.assertEqual(self.store.registered_group(101), "А-01")
         self.assertEqual(self.store.schedule(101, [self.day])[0][8], "ауд. 12")
         self.assertEqual(self.query("SELECT scope FROM schedule_imports"), [("base",)])

@@ -28,6 +28,13 @@ class DatabaseConfigTests(unittest.TestCase):
             self.assertNotIn("secret", str(failure.exception))
 
 
+def remove_homework_fixture(conn):
+    conn.execute("DROP FUNCTION homework_access(bigint, bigint)")
+    conn.execute("DROP TABLE homework_notifications, homework_files, homework, "
+                 "homework_group_admins, homework_preferences")
+    conn.execute("DELETE FROM schema_migrations WHERE version = '004_homework.sql'")
+
+
 class LegacyFixtureStore(RegistrationStore):
     def seed_legacy(self, digest, groups, lessons, valid_from, valid_to, numerator_monday):
         with self.connect() as conn, conn.cursor() as cur:
@@ -56,7 +63,7 @@ class PostgreSQLTests(unittest.TestCase):
         conn.execute(sql.SQL("CREATE SCHEMA {}").format(schema))
         self.addCleanup(conn.execute, sql.SQL("DROP SCHEMA {} CASCADE").format(schema))
         self.store = LegacyFixtureStore(make_conninfo(dsn, options=f"-c search_path={schema_name}"))
-        self.assertEqual(migrate(self.store), ["001_registration.sql", "002_schedule.sql", "003_schedule_updates.sql"])
+        self.assertEqual(migrate(self.store), ["001_registration.sql", "002_schedule.sql", "003_schedule_updates.sql", "004_homework.sql"])
         self.assertEqual(migrate(self.store), [])
         self.store.check_schema()
         self.store.add_groups(["А-01", "А-02"])
@@ -79,13 +86,14 @@ class PostgreSQLTests(unittest.TestCase):
 
     def test_migration_preserves_registration_from_stage_two(self):
         with self.store.connect() as conn:
+            remove_homework_fixture(conn)
             conn.execute("DROP TABLE schedule_notification_rate, schedule_notifications, "
                          "schedule_changes, schedule_previews, schedule_lessons, "
                          "schedule_groups, schedule_imports")
             conn.execute("DELETE FROM schema_migrations WHERE version <> '001_registration.sql'")
         self.store.start(123)
         self.store.choose_group(123, self.groups["А-01"])
-        self.assertEqual(migrate(self.store), ["002_schedule.sql", "003_schedule_updates.sql"])
+        self.assertEqual(migrate(self.store), ["002_schedule.sql", "003_schedule_updates.sql", "004_homework.sql"])
         self.assertEqual(self.store.start(123), ("А-01",))
 
     def test_import_is_idempotent_group_scoped_and_atomic(self):

@@ -20,6 +20,9 @@ def keyboard(*rows):
 
 
 HOME = keyboard((("Расписание", "open"),))
+HOME[0]["payload"]["buttons"].append([
+    {"type": "callback", "text": "Домашние задания", "payload": "hw:open"},
+])
 MENU = keyboard((("Сегодня", "today"), ("Завтра", "tomorrow")),
                 (("Неделя", "week"), ("Назад", "back")))
 PERIODS = {"today", "tomorrow", "week"}

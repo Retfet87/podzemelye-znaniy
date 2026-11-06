@@ -11,6 +11,8 @@ from urllib.parse import urlencode
 import psycopg
 
 from db import RegistrationStore, local_dsn
+from homework_dialog import HomeworkDialog
+from homework_files import receive_file, upload_file
 from schedule_notifications import work_notifications
 from schedule_updates import admin_id, decide
 from schedule_view import HOME, MENU, PERIODS, format_schedule, requested_days
@@ -41,11 +43,12 @@ def load_config(path=PROJECT_DIR / ".env"):
 
 
 class MaxError(Exception):
-    def __init__(self, message, *, retryable=False, status=None, retry_after=None):
+    def __init__(self, message, *, retryable=False, status=None, retry_after=None, attachment_pending=False):
         super().__init__(message)
         self.retryable = retryable
         self.status = status
         self.retry_after = retry_after
+        self.attachment_pending = attachment_pending
 
 
 class MaxClient:
@@ -78,10 +81,18 @@ class MaxClient:
                 retry_after = (int(retry_after) if isinstance(retry_after, str)
                                and retry_after.isascii() and retry_after.isdecimal()
                                and len(retry_after) <= 9 else None)
+                attachment_pending = False
+                if status == 400 and method == "POST" and path == "/messages":
+                    try:
+                        error_body = json.loads(response.read(8192))
+                        attachment_pending = (isinstance(error_body, dict)
+                                              and error_body.get("code") == "attachment.not.ready")
+                    except (ValueError, UnicodeError):
+                        pass
                 raise MaxError(
                     f"MAX вернул HTTP {status} для {method} {path}.",
                     retryable=status in (408, 429) or 500 <= status < 600,
-                    status=status, retry_after=retry_after,
+                    status=status, retry_after=retry_after, attachment_pending=attachment_pending,
                 )
             result = json.loads(response.read())
         except ssl.SSLCertVerificationError:
@@ -101,6 +112,12 @@ class MaxClient:
             raise MaxError(f"Неожиданный ответ MAX для {method} {path}.")
         return result
 
+    def receive_homework_file(self, attachment):
+        return receive_file(self.context, attachment)
+
+    def upload_homework_file(self, name, data):
+        return upload_file(self, name, data)
+
     def get_updates(self, marker):
         params = {"timeout": POLL_TIMEOUT, "types": "message_created,message_callback"}
         if marker is not None:
@@ -118,7 +135,14 @@ class MaxClient:
         payload = {"text": text}
         if attachments is not None:
             payload["attachments"] = attachments
-        result = self.request("POST", "/messages", recipient, payload=payload)
+        for attempt in range(3):
+            try:
+                result = self.request("POST", "/messages", recipient, payload=payload)
+                break
+            except MaxError as error:
+                if not error.attachment_pending or attempt == 2:
+                    raise
+                time.sleep(attempt + 1)
         if not isinstance(result.get("message"), dict):
             raise MaxError("MAX не подтвердил отправку сообщения.", retryable=True)
 
@@ -204,9 +228,17 @@ def handle_admin(client, store, update, administrator):
     return True
 
 
-def handle_update(client, store, update, administrator=None):
+def handle_update(client, store, update, administrator=None, homework=None):
     if handle_admin(client, store, update, administrator):
         return
+    update = as_object(update)
+    event_message = as_object(update.get("message"))
+    private = as_object(event_message.get("recipient")).get("chat_type") == "dialog"
+    if homework and private and update.get("update_type") == "message_created":
+        actor = max_user_id(event_message.get("sender"))
+        if actor and homework.handle(client, store, actor, administrator,
+                                     body=as_object(event_message.get("body"))):
+            return
     message = start_message(update)
     if message is not None:
         recipient = start_recipient(update)
@@ -249,6 +281,13 @@ def handle_update(client, store, update, administrator=None):
     if not (isinstance(callback_id, str) and callback_id.strip() and user_id):
         return
     if not isinstance(payload, str):
+        return
+    if payload.startswith("hw:"):
+        if not private or homework is None:
+            client.answer(callback_id, notification="Открой задания в личном диалоге с ботом.")
+        else:
+            homework.handle(client, store, user_id, administrator,
+                            payload=payload[3:], callback_id=callback_id)
         return
     if payload.startswith("schedule:"):
         message = as_object(update.get("message"))
@@ -304,6 +343,7 @@ def handle_schedule(client, store, callback_id, user_id, action):
 
 
 def run_polling(client, store, administrator=None):
+    homework = HomeworkDialog()
     marker = None
     retry_delay = 2
     connected = False
@@ -328,7 +368,7 @@ def run_polling(client, store, administrator=None):
 
         for update in updates:
             try:
-                handle_update(client, store, update, administrator)
+                handle_update(client, store, update, administrator, homework)
             except MaxError as error:
                 if error.status in (None, 401, 403) and not error.retryable:
                     raise
@@ -384,9 +424,12 @@ def main():
     client = MaxClient(token, context)
     stop = Event()
     worker = None
-    if config.get("SCHEDULE_NOTIFICATIONS_ENABLED") == "1":
+    schedule_enabled = config.get("SCHEDULE_NOTIFICATIONS_ENABLED") == "1"
+    homework_enabled = config.get("HOMEWORK_NOTIFICATIONS_ENABLED") == "1"
+    if schedule_enabled or homework_enabled:
         worker = Thread(target=work_notifications, args=(store, client.send_message, MaxError, stop),
-                        name="schedule-notifications", daemon=True)
+                        kwargs={"schedule": schedule_enabled, "homework": homework_enabled},
+                        name="notifications", daemon=True)
         worker.start()
     try:
         run_polling(client, store, administrator)
