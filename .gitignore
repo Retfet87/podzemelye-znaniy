@@ -1,0 +1,12 @@
+.env
+.venv/
+.runtime/
+__pycache__/
+*.py[cod]
+.DS_Store
+
+.env.*
+!.env.example
+backups/
+*.dump
+*.tar.gz
