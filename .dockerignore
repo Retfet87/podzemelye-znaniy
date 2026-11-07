@@ -11,3 +11,7 @@
 !certificates/russian_trusted_root_ca.pem
 !scripts/
 !scripts/*.sh
+!scripts/smoke_test.py
+**/__pycache__
+**/*.py[cod]
+**/.env*

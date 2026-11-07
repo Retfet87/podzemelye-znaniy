@@ -25,6 +25,8 @@ image=$(compose images -q migrate | head -n 1)
 test_url="postgresql://podzemelye:$POSTGRES_PASSWORD@127.0.0.1:5432/podzemelye_test"
 docker run --rm --network "container:$database" --volume "$root/tests:/app/tests:ro" \
     --env "TEST_DATABASE_URL=$test_url" "$image" python -m unittest discover -s /app/tests -v
+docker run --rm --network "container:$database" \
+    --env "TEST_DATABASE_URL=$test_url" "$image" python -m scripts.smoke_test
 compose run --rm -T migrate python - <<'PY'
 from app.config import load_config
 from app.db import Database, local_dsn
