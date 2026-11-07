@@ -63,5 +63,25 @@ services:
       postgres:
         condition: service_healthy
 
+  backup-daily:
+    image: postgres:16-bookworm
+    profiles: ["scheduled-backup"]
+    user: "${BACKUP_UID:-1000}:${BACKUP_GID:-1000}"
+    restart: on-failure:3
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGDATABASE: ${POSTGRES_DB:-podzemelye}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.docker}
+      BACKUP_ROTATION_ENABLED: ${BACKUP_ROTATION_ENABLED:-0}
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup.sh:/usr/local/bin/project-backup.sh:ro
+      - ./scripts/backup_daily.sh:/usr/local/bin/project-backup-daily.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/project-backup-daily.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:

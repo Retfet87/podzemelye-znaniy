@@ -21,10 +21,16 @@ compose up -d --build migrate
 compose run --rm -T migrate python manage.py migrate
 compose exec -T postgres createdb -U podzemelye podzemelye_test
 database=$(compose ps -q postgres)
+compose exec -T postgres psql -U podzemelye -d podzemelye_test -v ON_ERROR_STOP=1 -c "REVOKE CONNECT ON DATABASE podzemelye_test FROM PUBLIC; CREATE TABLE public.validation_environment (environment text PRIMARY KEY); INSERT INTO public.validation_environment VALUES ('podzemelye-validation-v1');"
+compose exec -T postgres createdb -U podzemelye podzemelye_demo
+docker exec -i -e POSTGRES_USER=podzemelye -e DEMO_DB_PASSWORD=isolated-demo-password "$database" sh < scripts/demo-init.sh
+compose exec -T postgres psql -U podzemelye -d podzemelye_demo -v ON_ERROR_STOP=1 -c "CREATE TABLE public.validation_environment (environment text PRIMARY KEY); INSERT INTO public.validation_environment VALUES ('podzemelye-validation-v1'); GRANT SELECT ON public.validation_environment TO demo_app;"
 image=$(compose images -q migrate | head -n 1)
 test_url="postgresql://podzemelye:$POSTGRES_PASSWORD@127.0.0.1:5432/podzemelye_test"
 docker run --rm --network "container:$database" --volume "$root/tests:/app/tests:ro" \
-    --env "TEST_DATABASE_URL=$test_url" "$image" python -m unittest discover -s /app/tests -v
+    --env "VALIDATION_DATABASE_URL=$test_url" \
+    --env "VALIDATION_DEMO_DATABASE_URL=postgresql://demo_app:isolated-demo-password@127.0.0.1:5432/podzemelye_demo" \
+    "$image" python -m scripts.test_isolated
 docker run --rm --network "container:$database" \
     --env "TEST_DATABASE_URL=$test_url" "$image" python -m scripts.smoke_test
 compose run --rm -T migrate python - <<'PY'
@@ -43,6 +49,7 @@ with db.connect() as conn:
         "INSERT INTO useful_materials (category,title,body,link) VALUES ('study','ДЕМО','Проверка','') RETURNING id"
     ).fetchone()[0]
     conn.execute("INSERT INTO useful_files VALUES (%s,1,'useful.txt',%s)", (material, b"useful attachment"))
+    conn.execute("INSERT INTO form_drafts VALUES (900000001,'homework','{}',now()+interval '30 minutes')")
 PY
 compose down
 compose up -d migrate
@@ -56,6 +63,7 @@ with db.connect() as conn:
     assert conn.execute("SELECT data FROM useful_files").fetchone() == (b"useful attachment",)
     assert conn.execute("SELECT count(*) FROM users").fetchone() == (1,)
     assert conn.execute("SELECT count(*) FROM event_notifications").fetchone() == (0,)
+    assert conn.execute("SELECT count(*) FROM form_drafts").fetchone() == (1,)
 print("Данные и оба вида вложений пережили пересоздание контейнеров.")
 PY
 mkdir -p backups
@@ -69,4 +77,13 @@ restored=$(compose exec -T postgres psql -U podzemelye -d restore_check -Atc \
     "SELECT encode(data,'hex') FROM homework_files; SELECT encode(data,'hex') FROM useful_files;")
 expected=$(printf '%s\n%s' 686f6d65776f726b206174746163686d656e74 75736566756c206174746163686d656e74)
 test "$restored" = "$expected"
-echo "Docker: тесты, сохранение вложений и восстановление архива прошли."
+scheduled_output=$(compose run --rm -T -e BACKUP_RUN_ONCE=1 backup-daily)
+scheduled_archive=$(printf '%s\n' "$scheduled_output" | tail -n 1)
+case "$scheduled_archive" in backup_*.dump) ;; *) echo "Не найден scheduled-архив." >&2; exit 1;; esac
+compose exec -T postgres createdb -U podzemelye restore_scheduled_check
+compose exec -T postgres pg_restore -U podzemelye -d restore_scheduled_check --exit-on-error < "$root/backups/scheduled-v1/$scheduled_archive"
+scheduled_restored=$(compose exec -T postgres psql -U podzemelye -d restore_scheduled_check -Atc \
+    "SELECT encode(data,'hex') FROM homework_files; SELECT encode(data,'hex') FROM useful_files; SELECT count(*) FROM form_drafts; SELECT count(*) FROM schema_migrations;")
+expected_scheduled=$(printf '%s\n1\n7' "$expected")
+test "$scheduled_restored" = "$expected_scheduled"
+echo "Docker: тесты, сохранение вложений/черновиков, one-shot и scheduled restore прошли."
