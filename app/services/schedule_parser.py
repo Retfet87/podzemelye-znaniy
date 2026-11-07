@@ -32,22 +32,32 @@ def clean(value):
     return " ".join(str(value).split())
 
 
-def is_split_by_content(values):
-    """Определяет разделение на 1-ю и 2-ю неделю по структуре строк, если граница не задана."""
-    if not (values[0] and values[2]):
+def is_split_by_two_subjects(values):
+    """
+    Распознаёт разделение ячейки на 1-ю и 2-ю неделю (например, Физика в 1-ю неделю и ОПД во 2-ю),
+    когда в строках 0 и 2 указаны два разных предмета, а в строках 1 и 3 — преподаватели и кабинеты.
+    """
+    if not (values[0] and values[1] and values[2] and values[3]):
         return False
-    if TEACHER.match(values[2]) or ROOM.match(values[2]):
+    # Строки 0 и 2 должны быть предметами (не ФИО преподавателя и не номером аудитории)
+    if TEACHER.search(values[0]) or ROOM.search(values[0]):
         return False
-    has_upper_details = bool(TEACHER.search(values[1]) or ROOM.search(values[1]))
-    has_lower_details = bool(TEACHER.search(values[3]) or ROOM.search(values[3]))
-    return has_upper_details or has_lower_details
+    if TEACHER.search(values[2]) or ROOM.search(values[2]):
+        return False
+    # Строки 1 и 3 должны содержать и преподавателя, и аудиторию каждая
+    upper_valid = bool(TEACHER.search(values[1]) and ROOM.search(values[1]))
+    lower_valid = bool(TEACHER.search(values[3]) and ROOM.search(values[3]))
+    return upper_valid and lower_valid
 
 
-def parse_block(values, split, gray_flags, group, weekday, pair):
+def parse_block(values, split, group, weekday, pair, gray_flags=()):
+    if not gray_flags:
+        gray_flags = (False, False, False, False)
+    actual_split = split or is_split_by_two_subjects(values)
     parts = (
         (("numerator", values[:2], any(gray_flags[:2])),
          ("denominator", values[2:], any(gray_flags[2:])))
-        if split else
+        if actual_split else
         (("all", values, any(gray_flags)),)
     )
     for parity, rows, is_other_building in parts:
@@ -104,12 +114,9 @@ def parse_xls(path):
         return text
 
     def separator(row, col):
-        # Если строка row+1 и row+2 не объединены вертикально и между ними есть любая линия границы
-        if merged.get((row + 1, col)) == merged.get((row + 2, col)) and (row + 2, col) in merged:
-            return False
         upper = book.xf_list[sheet.cell_xf_index(row + 1, col)].border
         lower = book.xf_list[sheet.cell_xf_index(row + 2, col)].border
-        return upper.bottom_line_style > 0 or lower.top_line_style > 0
+        return upper.bottom_line_style == 2 or lower.top_line_style == 2
 
     def is_gray(row, col):
         row, col = merged.get((row, col), (row, col))
@@ -123,7 +130,6 @@ def parse_xls(path):
             rgb = book.colour_map.get(idx)
             if rgb and len(rgb) == 3 and all(isinstance(c, int) for c in rgb):
                 r, g, b = rgb
-                # Любой оттенок серого (не чисто белый и не чисто чёрный)
                 if max(r, g, b) - min(r, g, b) <= 18 and 50 <= r <= 242:
                     return True
         return False
@@ -156,8 +162,8 @@ def parse_xls(path):
             for col, name in groups.items():
                 values = [value(r, col) for r in range(row, row + 4)]
                 gray_flags = [is_gray(r, col) for r in range(row, row + 4)]
-                split = separator(row, col) or is_split_by_content(values)
-                lessons.extend(parse_block(values, split, gray_flags, name, weekday, pair))
+                split = separator(row, col)
+                lessons.extend(parse_block(values, split, name, weekday, pair, gray_flags))
     for r in range(header + 1, sheet.nrows):
         for c in range(2, sheet.ncols):
             if value(r, c) and (r not in used_rows or c not in groups):
