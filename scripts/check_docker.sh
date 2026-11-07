@@ -58,7 +58,8 @@ print("Данные и оба вида вложений пережили пер�
 PY
 mkdir -p backups
 export BACKUP_UID=$(id -u) BACKUP_GID=$(id -g)
-archive=$(compose run --rm -T backup | tail -n 1)
+backup_output=$(compose run --rm -T backup)
+archive=$(printf '%s\n' "$backup_output" | tail -n 1)
 case "$archive" in backup_*.dump) ;; *) echo "Не найден архив резервной копии." >&2; exit 1;; esac
 compose exec -T postgres createdb -U podzemelye restore_check
 compose exec -T postgres pg_restore -U podzemelye -d restore_check --exit-on-error < "$root/backups/$archive"
