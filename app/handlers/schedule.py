@@ -4,7 +4,7 @@ import logging
 import psycopg
 
 from app.handlers.base import Handler
-from app.handlers.menus import HOME, MENU
+from app.handlers.menus import HOME, MENU, SCHEDULE_MENU
 from app.services.schedule_formatter import PERIODS, format_schedule, requested_days
 
 logger = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ class ScheduleHandler(Handler):
                     if action == "back":
                         respond(text=f"Твоя группа: {group}.", attachments=HOME)
                     else:
-                        respond(text=f"Расписание · {group}", attachments=MENU)
+                        respond(text=f"Расписание · {group}", attachments=SCHEDULE_MENU)
                     return
             else:
                 respond(notification="Кнопка недействительна. Отправь /start.")

@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 import psycopg
 
 from helpers import handle_update
-from app.handlers.menus import HOME, MENU
+from app.handlers.menus import HOME, MENU, SCHEDULE_MENU
 from app.services.schedule_formatter import format_schedule, requested_days
 from app.services.schedule_parser import parse_block, parse_xls
 from test_main import callback_update, message_update
@@ -69,7 +69,7 @@ class ScheduleUITests(unittest.TestCase):
     def test_open_and_back_and_text_triggers(self):
         self.store.registered_group.return_value = "ИБ-11"
         handle_update(self.client, self.store, callback_update("schedule:open"))
-        self.client.answer.assert_called_once_with("click", text="Расписание · ИБ-11", attachments=MENU)
+        self.client.answer.assert_called_once_with("click", text="Расписание · ИБ-11", attachments=SCHEDULE_MENU)
         self.client.reset_mock()
         handle_update(self.client, self.store, callback_update("schedule:back"))
         self.client.answer.assert_called_once_with("click", text="Твоя группа: ИБ-11.", attachments=HOME)
@@ -78,7 +78,7 @@ class ScheduleUITests(unittest.TestCase):
         msg["message"]["recipient"]["chat_type"] = "dialog"
         handle_update(self.client, self.store, msg)
         self.client.send_message.assert_called_once_with(
-            {"user_id": 10}, "Расписание · ИБ-11", attachments=MENU
+            {"user_id": 10}, "Расписание · ИБ-11", attachments=SCHEDULE_MENU
         )
 
     @patch("app.handlers.schedule.requested_days", return_value=[MONDAY])

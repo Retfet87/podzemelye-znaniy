@@ -22,7 +22,7 @@ WELCOME = (
 
 def institution_keyboard(users):
     return inline_keyboard([[callback_button("🏫 АКВТ" if code == "akvt" else name[:60], "institution:" + code)]
-                            for code, name in users.institutions()])
+                            for code, name in users.institutions()], home=False)
 
 
 
@@ -41,7 +41,8 @@ def prefixes_keyboard(groups, offset=0):
         rows.append([callback_button("Предыдущие направления", f"group_prefix_page:{max(0, offset - 40)}")])
     if offset + 40 < len(prefixes):
         rows.append([callback_button("Другие направления", f"group_prefix_page:{offset + 40}")])
-    rows.append([callback_button("Назад", "registration:schools")])
+    # «Назад» с этого экрана вела бы к выбору учебного заведения, а «🏠 Домой»
+    # для незарегистрированного студента открывает тот же экран.
     return inline_keyboard(rows)
 
 
