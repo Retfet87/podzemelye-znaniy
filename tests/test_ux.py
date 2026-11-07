@@ -191,6 +191,16 @@ class UXDatabaseTests(unittest.TestCase):
             self.assertEqual(sorted(executor.map(apply, range(2))), [0, 32])
         self.assertEqual(self.query('SELECT count(*) FROM demo_records'), [(32,)])
 
+    def test_today_deadline_count_respects_personal_and_group_scope(self):
+        from app.repositories.homework import HomeworkStore
+        now=datetime.now(SAMARA)
+        deadline=now+timedelta(hours=1)
+        for group,owner in ((self.a,11),(self.a,None),(self.b,12),(self.b,None)):
+            self.query("INSERT INTO homework (group_id,owner_id,subject,body,deadline) VALUES (%s,%s,'Предмет','Задание',%s)",(group,owner,deadline))
+        self.assertEqual(HomeworkStore(self.store,11,None).due_count(now,deadline+timedelta(hours=1)),2)
+        self.assertEqual(HomeworkStore(self.store,12,None).due_count(now,deadline+timedelta(hours=1)),2)
+        self.assertEqual(HomeworkStore(self.store,13,None).due_count(now,deadline+timedelta(hours=1)),0)
+
     def test_web_views_preserve_homework_scope_and_hide_unpublished_events(self):
         from app.web import ReadViews
         self.query("INSERT INTO homework (group_id,owner_id,subject,body) VALUES (%s,11,'A','personal-A'),(%s,12,'B','personal-B'),(%s,NULL,'A','shared-A'),(%s,NULL,'B','shared-B')",(self.a,self.b,self.a,self.b))

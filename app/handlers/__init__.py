@@ -11,6 +11,7 @@ from app.handlers.homework import HomeworkHandler
 from app.handlers.registration import RegistrationHandler
 from app.handlers.router import Router
 from app.handlers.schedule import ScheduleHandler
+from app.handlers.questions import QuestionsHandler
 
 
 def build_router(deps, *, homework=None, community=None):
@@ -20,6 +21,7 @@ def build_router(deps, *, homework=None, community=None):
         homework or HomeworkHandler(),
         RegistrationHandler(),
         ScheduleHandler(),
+        QuestionsHandler(),
     ])
 
 

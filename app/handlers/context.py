@@ -6,6 +6,7 @@ from app.max_api.client import MaxClient
 from app.max_api.updates import as_object, max_user_id
 from app.repositories.schedule import ScheduleRepository
 from app.repositories.users import UserRepository
+from app.services.today import TodayService
 
 
 @dataclass(frozen=True)
@@ -17,10 +18,12 @@ class Deps:
     users: UserRepository
     schedules: ScheduleRepository
     admin: int | None = None
+    today: TodayService | None = None
 
     @classmethod
     def create(cls, client, db, admin=None):
-        return cls(client, db, UserRepository(db), ScheduleRepository(db), admin)
+        schedules = ScheduleRepository(db)
+        return cls(client, db, UserRepository(db), schedules, admin, TodayService(db, schedules))
 
 
 @dataclass(frozen=True)

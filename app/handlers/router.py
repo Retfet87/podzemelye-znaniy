@@ -71,7 +71,8 @@ class Router:
         try:
             group = ctx.users.registered_group(ctx.actor)
             if group:
-                reply(f"🏰 Подземелье знаний\nТвоя группа: {group}\n\nКуда отправимся?", HOME)
+                text = ctx.deps.today.home(ctx.actor, group) if ctx.deps.today else f"🏰 Подземелье знаний\nТвоя группа: {group}\n\nКуда отправимся?"
+                reply(text, HOME)
             else:
                 ctx.users.start(ctx.actor)
                 reply(WELCOME, institution_keyboard(ctx.users))

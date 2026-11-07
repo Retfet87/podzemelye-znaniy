@@ -45,6 +45,16 @@ class HomeworkStore:
         self.store = store
         self.context = {"actor": actor, "administrator": administrator}
 
+    def due_count(self, now, until):
+        """Only own/group deadlines in the half-open time window, never other admin groups."""
+        with self.store.connect() as conn:
+            return conn.execute(
+                f"""SELECT count(*) FROM homework h {SCOPED}
+                    WHERE {VISIBLE} AND (h.owner_id = %(actor)s OR a.member)
+                      AND h.deadline >= %(now)s AND h.deadline < %(until)s""",
+                self.context | {'now': now, 'until': until},
+            ).fetchone()[0]
+
     def groups(self, shared):
         with self.store.connect() as conn:
             rows = conn.execute(

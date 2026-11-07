@@ -79,7 +79,8 @@ class RegistrationHandler(Handler):
             client.send_message(recipient, "База временно недоступна. Попробуй /start позже.")
             return True
         if group:
-            client.send_message(recipient, f"🏰 Подземелье знаний\nТвоя группа: {group[0]}.\n\nКуда отправимся?", attachments=HOME)
+            text = ctx.deps.today.home(user_id, group[0]) if ctx.deps.today else f"🏰 Подземелье знаний\nТвоя группа: {group[0]}.\n\nКуда отправимся?"
+            client.send_message(recipient, text, attachments=HOME)
         else:
             illustration = []
             if ctx.users.welcome_needed(user_id) is True:
@@ -173,7 +174,9 @@ class RegistrationHandler(Handler):
         if status == "unavailable":
             client.answer(callback_id, notification="Группа недоступна. Отправь /start для нового списка.")
         elif status == "existing":
-            client.answer(callback_id, text=f"Твоя группа уже сохранена: {name}.", attachments=HOME)
+            text = ctx.deps.today.home(ctx.actor, name) if ctx.deps.today else f"Твоя группа уже сохранена: {name}."
+            client.answer(callback_id, text=text, attachments=HOME)
         else:
-            client.answer(callback_id, text=f"Регистрация завершена. Твоя группа: {name}.", attachments=HOME)
+            text = ctx.deps.today.home(ctx.actor, name) if ctx.deps.today else f"Регистрация завершена. Твоя группа: {name}."
+            client.answer(callback_id, text=text, attachments=HOME)
         return True

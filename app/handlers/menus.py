@@ -2,6 +2,7 @@
 from app.max_api.keyboards import callback_button, inline_keyboard
 
 HOME = inline_keyboard([
+    [callback_button("Сегодня", "schedule:today"), callback_button("Завтра", "schedule:tomorrow")],
     [callback_button("📅 Расписание", "schedule:open")],
     [callback_button("📝 Домашние задания", "hw:open")],
     [callback_button("🎉 Мероприятия", "community:events:0"),
