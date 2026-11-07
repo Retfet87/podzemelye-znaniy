@@ -121,14 +121,29 @@ class RegistrationTests(unittest.TestCase):
 
     def test_first_start_uses_max_id_and_shows_group_buttons(self):
         self.store.start.return_value = None
-        self.store.active_groups.return_value = [(5, "А-01")]
+        self.store.active_groups.return_value = [(5, "ВЕБ-11"), (6, "ИБ-11")]
         handle_update(self.client, self.store, message_update())
         self.store.start.assert_called_once_with(10)
         self.client.send_message.assert_called_once_with(
             {"chat_id": 20},
-            f"{WELCOME}\nВыбери свою группу:",
+            f"{WELCOME}\nВыбери своё направление:",
             attachments=[{"type": "inline_keyboard", "payload": {
-                "buttons": [[{"type": "callback", "text": "А-01", "payload": "group:5"}]],
+                "buttons": [[
+                    {"type": "callback", "text": "ВЕБ", "payload": "group_prefix:ВЕБ"},
+                    {"type": "callback", "text": "ИБ", "payload": "group_prefix:ИБ"},
+                ]],
+            }}],
+        )
+        # При выборе направления показываются конкретные группы направления и кнопка Назад
+        handle_update(self.client, self.store, callback_update("group_prefix:ВЕБ"))
+        self.client.answer.assert_called_once_with(
+            "click",
+            text="Направление ВЕБ. Выбери свою группу:",
+            attachments=[{"type": "inline_keyboard", "payload": {
+                "buttons": [
+                    [{"type": "callback", "text": "ВЕБ-11", "payload": "group:5"}],
+                    [{"type": "callback", "text": "Назад", "payload": "group_back"}],
+                ],
             }}],
         )
 
