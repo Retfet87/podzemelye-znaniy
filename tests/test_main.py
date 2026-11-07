@@ -29,7 +29,7 @@ def message_update(text="/start", *, chat_id=20, is_bot=False):
 
 class BotTests(unittest.TestCase):
     def test_config_reads_token_from_file(self):
-        with tempfile.TemporaryDirectory(dir=PROJECT_DIR) as folder:
+        with tempfile.TemporaryDirectory() as folder:
             env = Path(folder) / ".env"
             env.write_text("# Настройки\nMAX_BOT_TOKEN=test=value\n", encoding="utf-8")
             self.assertEqual(load_config(env), {"MAX_BOT_TOKEN": "test=value"})

@@ -23,8 +23,8 @@ compose exec -T postgres createdb -U podzemelye podzemelye_test
 database=$(compose ps -q postgres)
 image=$(compose images -q migrate | head -n 1)
 test_url="postgresql://podzemelye:$POSTGRES_PASSWORD@127.0.0.1:5432/podzemelye_test"
-docker run --rm --network "container:$database" --volume "$root/tests:/tests:ro" \
-    --env "TEST_DATABASE_URL=$test_url" "$image" python -m unittest discover -s /tests -v
+docker run --rm --network "container:$database" --volume "$root/tests:/app/tests:ro" \
+    --env "TEST_DATABASE_URL=$test_url" "$image" python -m unittest discover -s /app/tests -v
 compose run --rm -T migrate python - <<'PY'
 from app.config import load_config
 from app.db import Database, local_dsn
