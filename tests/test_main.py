@@ -10,7 +10,8 @@ from app.bootstrap import main as run_main
 from app.config import PROJECT_DIR, load_config, max_tls_context
 from app.handlers import Deps, build_router
 from app.handlers.menus import HOME
-from app.handlers.registration import WELCOME
+from app.handlers.registration import WELCOME, institution_keyboard
+from app.max_api.keyboards import inline_keyboard
 from app.max_api.client import MaxClient, MaxError
 from app.max_api.updates import start_recipient
 from helpers import handle_update
@@ -69,7 +70,7 @@ class BotTests(unittest.TestCase):
         self.assertEqual(poll.args, ("GET", "/updates?timeout=30&types=message_created%2Cmessage_callback&marker=7"))
         self.assertEqual(poll.kwargs["headers"]["Authorization"], "test-token")
         self.assertEqual(send.args, ("POST", "/messages?chat_id=20"))
-        self.assertEqual(json.loads(send.kwargs["body"]), {"text": WELCOME})
+        self.assertEqual(json.loads(send.kwargs["body"]), {"text": WELCOME, "attachments": inline_keyboard([])})
 
     @patch("app.max_api.client.http.client.HTTPSConnection")
     def test_auth_error_does_not_expose_response_body_or_token(self, connection_class):
@@ -97,7 +98,7 @@ class BotTests(unittest.TestCase):
                 polling.run_polling(client, build_router(Deps(client, store, store, store)))
         sleep.assert_called_once_with(2)
         client.send_message.assert_called_once_with(
-            {"chat_id": 20}, f"{WELCOME}\nТвоя группа: А-01.", attachments=HOME
+            {"chat_id": 20}, "🏰 Подземелье знаний\nТвоя группа: А-01.\n\nКуда отправимся?", attachments=HOME
         )
         self.assertEqual([call.args for call in client.get_updates.call_args_list], [(None,), (None,), (8,)])
 
@@ -119,41 +120,30 @@ class RegistrationTests(unittest.TestCase):
     def setUp(self):
         self.client = Mock()
         self.store = Mock()
+        self.store.institutions.return_value = [('akvt', 'АКВТ')]
+        self.store.welcome_needed.return_value = False
 
     def test_first_start_uses_max_id_and_shows_group_buttons(self):
         self.store.start.return_value = None
-        self.store.active_groups.return_value = [(5, "ВЕБ-11"), (6, "ИБ-11")]
+        self.store.active_groups.return_value = [(5, "ВЕБ-11")]
+        self.store.institutions.return_value = [('akvt', 'АКВТ')]
+        self.store.welcome_needed.return_value = False
         handle_update(self.client, self.store, message_update())
         self.store.start.assert_called_once_with(10)
-        self.client.send_message.assert_called_once_with(
-            {"chat_id": 20},
-            f"{WELCOME}\nВыбери своё направление:",
-            attachments=[{"type": "inline_keyboard", "payload": {
-                "buttons": [[
-                    {"type": "callback", "text": "ВЕБ", "payload": "group_prefix:ВЕБ"},
-                    {"type": "callback", "text": "ИБ", "payload": "group_prefix:ИБ"},
-                ]],
-            }}],
-        )
-        # При выборе направления показываются конкретные группы направления и кнопка Назад
-        handle_update(self.client, self.store, callback_update("group_prefix:ВЕБ"))
-        self.client.answer.assert_called_once_with(
-            "click",
-            text="Направление ВЕБ. Выбери свою группу:",
-            attachments=[{"type": "inline_keyboard", "payload": {
-                "buttons": [
-                    [{"type": "callback", "text": "ВЕБ-11", "payload": "group:5"}],
-                    [{"type": "callback", "text": "Назад", "payload": "group_back"}],
-                ],
-            }}],
-        )
+        self.client.send_message.assert_called_once_with({'chat_id': 20}, WELCOME,
+            attachments=institution_keyboard(self.store))
+        self.store.choose_institution.return_value = True
+        self.store.institution_groups.return_value = [(5, "ВЕБ-11")]
+        handle_update(self.client, self.store, callback_update('institution:akvt'))
+        self.store.choose_institution.assert_called_once_with(10, 'akvt')
+        self.assertIn('направление', self.client.answer.call_args.kwargs['text'])
 
     def test_repeat_start_shows_schedule_without_group_lookup(self):
         self.store.start.return_value = ("А-01",)
         handle_update(self.client, self.store, message_update())
         self.store.active_groups.assert_not_called()
         self.client.send_message.assert_called_once_with(
-            {"chat_id": 20}, f"{WELCOME}\nТвоя группа: А-01.", attachments=HOME,
+            {"chat_id": 20}, "🏰 Подземелье знаний\nТвоя группа: А-01.\n\nКуда отправимся?", attachments=HOME,
         )
 
     def test_callback_uses_clicker_not_message_sender(self):
@@ -175,7 +165,7 @@ class RegistrationTests(unittest.TestCase):
         self.store.active_groups.return_value = []
         handle_update(self.client, self.store, message_update())
         self.client.send_message.assert_called_once_with(
-            {"chat_id": 20}, f"{WELCOME}\nГруппы пока не добавлены. Попробуй /start позже.",
+            {"chat_id": 20}, WELCOME, attachments=institution_keyboard(self.store),
         )
 
     def test_group_chat_keeps_greeting_without_registering(self):
@@ -195,7 +185,7 @@ class RegistrationTests(unittest.TestCase):
         call = connection.request.call_args
         self.assertEqual(call.args, ("POST", "/answers?callback_id=click%26"))
         self.assertEqual(json.loads(call.kwargs["body"]), {
-            "message": {"text": "Сохранено", "attachments": []},
+            "message": {"text": "Сохранено", "attachments": inline_keyboard([])},
         })
 
     def test_tls_with_project_ca_still_verifies_hostname_and_certificates(self):

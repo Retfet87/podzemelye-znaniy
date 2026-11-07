@@ -31,6 +31,15 @@ class OfflineMAX:
     def answer(self, callback_id, *, text=None, attachments=None, notification=None):
         self.messages.append((text or notification, attachments))
 
+    def welcome_attachment(self):
+        return None
+
+    def upload_media(self, kind, name, data):
+        return {"type": kind, "payload": {"token": "offline-media"}}
+
+    def upload_file(self, name, data):
+        return {"type": "file", "payload": {"token": "offline-file"}}
+
     def receive_file(self, attachment):
         return "smoke.txt", b"offline attachment"
 
@@ -73,13 +82,14 @@ class Journey(unittest.TestCase):
                 for attachment in client.messages[-1][1] or []:
                     for row in attachment.get("payload", {}).get("buttons", []):
                         for button in row:
-                            if button.get("text") == label:
+                            if button.get("text", "").endswith(label):
                                 callback(button["payload"])
                                 return
                 self.fail(f"Кнопка не найдена: {label}")
 
             message("/start")
             self.assertIsNone(deps.users.registered_group(student))
+            callback("institution:akvt")
             click("ДЕМО")
             click("ДЕМО-01")
             self.assertEqual(deps.users.registered_group(student), "ДЕМО-01")

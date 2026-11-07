@@ -4,7 +4,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates tzdata \
+    && apt-get install -y --no-install-recommends ca-certificates tzdata ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
@@ -12,8 +12,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ ./app/
 COPY migrations/ ./migrations/
 COPY certificates/russian_trusted_root_ca.pem ./certificates/
-COPY main.py manage.py ./
+COPY main.py manage.py seed_demo.py ./
 COPY scripts/ ./scripts/
+COPY assets/ ./assets/
 
 USER 10001:10001
 CMD ["python", "main.py"]

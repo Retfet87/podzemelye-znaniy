@@ -5,6 +5,7 @@ import re
 import psycopg
 
 from app.handlers.base import Handler
+from app.max_api.client import MaxError
 from app.handlers.common import number
 from app.handlers.menus import HOME
 from app.max_api.keyboards import callback_button, inline_keyboard
@@ -13,9 +14,16 @@ from app.max_api.updates import as_object, max_user_id, start_message, start_rec
 logger = logging.getLogger(__name__)
 
 WELCOME = (
-    "Привет! Я «Подземелье знаний» — учебный бот для студентов "
-    "Астраханского колледжа вычислительной техники."
+    "🏰 Добро пожаловать в Подземелье знаний!\n\n"
+    "Расписание, задания, события и важные уведомления — всё рядом.\n"
+    "Для начала выбери своё учебное заведение."
 )
+
+
+def institution_keyboard(users):
+    return inline_keyboard([[callback_button("🏫 АКВТ" if code == "akvt" else name[:60], "institution:" + code)]
+                            for code, name in users.institutions()])
+
 
 
 def group_prefix(name: str) -> str:
@@ -33,6 +41,7 @@ def prefixes_keyboard(groups, offset=0):
         rows.append([callback_button("Предыдущие направления", f"group_prefix_page:{max(0, offset - 40)}")])
     if offset + 40 < len(prefixes):
         rows.append([callback_button("Другие направления", f"group_prefix_page:{offset + 40}")])
+    rows.append([callback_button("Назад", "registration:schools")])
     return inline_keyboard(rows)
 
 
@@ -64,25 +73,45 @@ class RegistrationHandler(Handler):
         user_id = max_user_id(message.get("sender"))
         try:
             group = ctx.users.start(user_id)
-            groups = [] if group else ctx.users.active_groups()
         except psycopg.Error:
             logger.warning("PostgreSQL: не удалось открыть регистрацию.")
             client.send_message(recipient, "База временно недоступна. Попробуй /start позже.")
             return True
         if group:
-            client.send_message(recipient, f"{WELCOME}\nТвоя группа: {group[0]}.", attachments=HOME)
-        elif not groups:
-            client.send_message(recipient, f"{WELCOME}\nГруппы пока не добавлены. Попробуй /start позже.")
+            client.send_message(recipient, f"🏰 Подземелье знаний\nТвоя группа: {group[0]}.\n\nКуда отправимся?", attachments=HOME)
         else:
+            illustration = []
+            if ctx.users.welcome_needed(user_id) is True:
+                try:
+                    photo = client.welcome_attachment()
+                    illustration = [photo] if photo else []
+                except (ValueError, OSError, MaxError):
+                    logger.warning("Приветственная иллюстрация временно недоступна.")
             client.send_message(
                 recipient,
-                f"{WELCOME}\nВыбери своё направление:",
-                attachments=prefixes_keyboard(groups),
+                WELCOME,
+                attachments=illustration + institution_keyboard(ctx.users),
             )
+            ctx.users.mark_welcome(user_id)
+            return True
         return True
 
     def on_callback(self, ctx):
         client, callback_id = ctx.client, ctx.callback_id
+
+        if ctx.payload == "registration:schools" and ctx.private:
+            client.answer(callback_id, text="🏫 Выбери учебное заведение", attachments=institution_keyboard(ctx.users))
+            return True
+        if ctx.payload.startswith("institution:"):
+            if not ctx.private:
+                client.answer(callback_id, notification="Открой личный диалог с ботом.")
+                return True
+            code = ctx.payload.removeprefix("institution:")
+            if ctx.users.choose_institution(ctx.actor, code):
+                client.answer(callback_id, text="🏫 Выбери направление", attachments=prefixes_keyboard(ctx.users.institution_groups(code)))
+            else:
+                client.answer(callback_id, text="Учебное заведение недоступно. Вернись домой.", attachments=inline_keyboard([]))
+            return True
 
         selection = (ctx.payload == "group_back" or ctx.payload.startswith(
             ("group:", "group_prefix:", "group_prefix_page:", "group_page:")))
@@ -91,14 +120,17 @@ class RegistrationHandler(Handler):
         if not ctx.private:
             client.answer(callback_id, notification="Выбери группу в личном диалоге с ботом.")
             return True
+        if not ctx.users.institution(ctx.actor):
+            client.answer(callback_id, text="Сначала выбери учебное заведение.", attachments=institution_keyboard(ctx.users))
+            return True
         if not ctx.payload.startswith("group:"):
             try:
-                groups = ctx.users.active_groups()
+                groups = ctx.users.institution_groups(ctx.users.institution(ctx.actor))
                 if ctx.payload == "group_back" or ctx.payload.startswith("group_prefix_page:"):
                     offset = 0 if ctx.payload == "group_back" else number(
                         ctx.payload.removeprefix("group_prefix_page:"), zero=True)
                     attachments = prefixes_keyboard(groups, offset)
-                    text = f"{WELCOME}\nВыбери своё направление:"
+                    text = WELCOME
                 else:
                     parts = ctx.payload.split(":")
                     if len(parts) != (3 if parts[0] == "group_page" else 2):
@@ -121,6 +153,9 @@ class RegistrationHandler(Handler):
             client.answer(callback_id, text=text, attachments=attachments)
             return True
 
+        if not ctx.users.institution(ctx.actor):
+            client.answer(callback_id, text="Сначала выбери учебное заведение.", attachments=institution_keyboard(ctx.users))
+            return True
         if not ctx.payload.startswith("group:"):
             return False
         raw_id = ctx.payload.removeprefix("group:")

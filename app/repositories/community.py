@@ -5,6 +5,10 @@ from app.db.locks import EVENT_LOCK
 from app.services.events import event_text
 from app.services.file_validation import validate_data
 from app.services.validation import validate_link
+from app.services.media import validate_media
+
+TAGS = {"study": "🎓 Учёба", "contest": "🏆 Конкурсы", "hackathon": "💻 Хакатоны",
+        "culture": "🎭 Культура", "sport": "⚽ Спорт", "important": "📢 Важное", "other": "🎉 Другое"}
 
 CATEGORIES = {
     "curators": "Кураторы", "teachers": "Преподаватели", "rooms": "Кабинеты",
@@ -34,14 +38,15 @@ class CommunityStore:
             ).fetchall()
             return ([(None, "Для всех групп")] if self.super else []) + groups
 
-    def events(self, review, offset):
+    def events(self, review, offset, *, history=False, tag=None):
         with self.store.connect() as conn:
             return conn.execute(
                 f"""SELECT id, title, starts_at, state FROM events
                     WHERE CASE WHEN %(review)s THEN {ADMIN} AND state IN ('draft', 'proposed')
-                    ELSE ({ADMIN} OR {MEMBER}) AND state = 'published' AND starts_at > now() END
+                    ELSE ({ADMIN} OR {MEMBER}) AND state = 'published' AND ((starts_at <= now()) = %(history)s) END
+                    AND (%(tag)s::text IS NULL OR %(tag)s = ANY(tags))
                     ORDER BY starts_at, id LIMIT {PAGE_SIZE + 1} OFFSET %(offset)s""",
-                self.params | {"review": review, "offset": offset},
+                self.params | {"review": review, "offset": offset, "history": history, "tag": tag},
             ).fetchall()
 
     def event(self, event):
@@ -83,31 +88,36 @@ class CommunityStore:
             return True
 
     def save_event(self, draft):
-        args = self.params | vars(draft)
+        if not set(draft.tags) <= TAGS.keys():
+            raise ValueError("Выбери теги из списка.")
+        self.validate_media_list(draft.media)
+        args = self.params | vars(draft) | {"tags": sorted(set(draft.tags)), "media_changed": draft.media is not None}
         with self.store.connect() as conn:
             self.event_lock(conn)
             if draft.id is None:
                 row = conn.execute(
-                    f"""INSERT INTO events (title, description, starts_at, place, state, proposed_group_id)
+                    f"""INSERT INTO events (title, description, starts_at, place, state, proposed_group_id, tags)
                         SELECT %(title)s, %(body)s, %(starts_at)s, %(place)s,
                         CASE WHEN {ADMIN} THEN 'draft' ELSE 'proposed' END,
-                        CASE WHEN NOT {ADMIN} THEN (SELECT group_id FROM users WHERE max_user_id = %(actor)s) END
+                        CASE WHEN NOT {ADMIN} THEN (SELECT group_id FROM users WHERE max_user_id = %(actor)s) END, %(tags)s
                         WHERE ({ADMIN} OR {PROPOSER}) AND %(starts_at)s > now()
                         RETURNING id""", args,
                 ).fetchone()
             else:
                 row = conn.execute(
                     f"""UPDATE events SET title = %(title)s, description = %(body)s,
-                        place = %(place)s, starts_at = %(starts_at)s, revision = revision + 1,
+                        place = %(place)s, starts_at = %(starts_at)s, tags = %(tags)s, revision = revision + 1,
                         reminder_version = reminder_version + (starts_at <> %(starts_at)s)::integer
                         WHERE id = %(id)s AND revision = %(revision)s AND {ADMIN}
                           AND state <> 'cancelled' AND starts_at > now() AND %(starts_at)s > now()
-                          AND (title, description, starts_at, place) IS DISTINCT FROM
-                              (%(title)s, %(body)s, %(starts_at)s, %(place)s)
+                          AND (%(media_changed)s OR (title, description, starts_at, place, tags) IS DISTINCT FROM
+                              (%(title)s, %(body)s, %(starts_at)s, %(place)s, %(tags)s))
                         RETURNING id, state""", args,
                 ).fetchone()
                 if row and row[1] == "published":
                     self.enqueue_event(conn, row[0], "changed")
+            if row and draft.media is not None:
+                self.replace_media(conn, row[0], "event", draft.media)
             return row[0] if row else None
 
     def transition(self, event, revision, publish):
@@ -280,3 +290,47 @@ class CommunityStore:
             room_str = ", ".join(sorted(rooms_by_teacher[t_name]))
             result.append((t_name, subj_str, room_str))
         return (user_group[1] if user_group else None), result
+
+    @staticmethod
+    def validate_media_list(media):
+        if media is not None:
+            if len(media) > 3:
+                raise ValueError("До трёх фото или видео.")
+            for kind, name, data in media:
+                validate_media(kind, name, data)
+
+    @staticmethod
+    def replace_media(conn, event, section, media):
+        conn.execute("DELETE FROM event_media WHERE event_id = %s AND section = %s", (event, section))
+        with conn.cursor() as cur:
+            cur.executemany("INSERT INTO event_media VALUES (%s,%s,%s,%s,%s,%s)",
+                            [(event, section, i, kind, name, data) for i, (kind, name, data) in enumerate(media, 1)])
+
+    def details(self, event):
+        if self.event(event) is None:
+            return None
+        with self.store.connect() as conn:
+            return conn.execute("SELECT tags, report_body, report_link, report_published FROM events WHERE id = %s", (event,)).fetchone()
+
+    def media(self, event, section):
+        details = self.details(event)
+        if not details or section not in ('event', 'report') or (section == 'report' and not (self.super or details[3])):
+            return []
+        with self.store.connect() as conn:
+            return conn.execute("SELECT kind,name,data FROM event_media WHERE event_id = %s AND section = %s ORDER BY slot", (event, section)).fetchall()
+
+    def save_report(self, draft):
+        validate_link(draft.link)
+        self.validate_media_list(draft.media)
+        if not draft.body.strip():
+            raise ValueError("Добавь краткие итоги мероприятия.")
+        with self.store.connect() as conn:
+            self.event_lock(conn)
+            row = conn.execute(
+                f"""UPDATE events SET report_body = %(body)s, report_link = %(link)s,
+                    report_published = true, revision = revision + 1
+                    WHERE id = %(id)s AND revision = %(revision)s AND starts_at <= now()
+                      AND state = 'published' AND {ADMIN} RETURNING id""", self.params | vars(draft)).fetchone()
+            if row and draft.media is not None:
+                self.replace_media(conn, row[0], 'report', draft.media)
+            return row[0] if row else None

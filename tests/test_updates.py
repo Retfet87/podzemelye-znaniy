@@ -176,7 +176,7 @@ class PublicationTests(unittest.TestCase):
                          "(source_sha256, valid_from, valid_to, numerator_monday)")
             conn.execute("DELETE FROM schema_migrations WHERE version = %s",
                          ("003_schedule_updates.sql",))
-        self.assertEqual(migrate(self.store), ["003_schedule_updates.sql", "004_homework.sql", "005_community.sql"])
+        self.assertEqual(migrate(self.store), ["003_schedule_updates.sql", "004_homework.sql", "005_community.sql", "006_ux.sql"])
         self.assertEqual(self.store.registered_group(101), "А-01")
         self.assertEqual(self.store.schedule(101, [self.day])[0][8], "ауд. 12")
         self.assertEqual(self.query("SELECT scope FROM schedule_imports"), [("base",)])

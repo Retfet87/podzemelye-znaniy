@@ -33,7 +33,7 @@ from app.db import Database, local_dsn
 db = Database(local_dsn(load_config()))
 with db.connect() as conn:
     group = conn.execute("INSERT INTO groups (name) VALUES ('ДЕМО-01') RETURNING id").fetchone()[0]
-    conn.execute("INSERT INTO users (max_user_id, group_id) VALUES (900000001, %s)", (group,))
+    conn.execute("INSERT INTO users (max_user_id, group_id, institution_code) VALUES (900000001, %s, 'akvt')", (group,))
     task = conn.execute(
         "INSERT INTO homework (group_id, owner_id, subject, body) VALUES (%s,900000001,'ДЕМО','Проверка') RETURNING id",
         (group,),

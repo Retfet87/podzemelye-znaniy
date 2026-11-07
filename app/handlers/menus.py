@@ -2,16 +2,17 @@
 from app.max_api.keyboards import callback_button, inline_keyboard
 
 HOME = inline_keyboard([
-    [callback_button("Расписание", "schedule:open")],
-    [callback_button("Домашние задания", "hw:open")],
-    [callback_button("Мероприятия", "community:events:0"),
-     callback_button("Полезное", "community:useful")],
-])
+    [callback_button("📅 Расписание", "schedule:open")],
+    [callback_button("📝 Домашние задания", "hw:open")],
+    [callback_button("🎉 Мероприятия", "community:events:0"),
+     callback_button("📚 Полезное", "community:useful")],
+    [callback_button("🔔 Уведомления", "hw:prefs")],
+], home=False)
 
 MENU = inline_keyboard([
     [callback_button("Сегодня", "schedule:today"), callback_button("Завтра", "schedule:tomorrow")],
     [callback_button("Неделя", "schedule:week")],
-    [callback_button("Назад", "schedule:back")],
+    [callback_button("Назад", "schedule:open")],
 ])
 
 

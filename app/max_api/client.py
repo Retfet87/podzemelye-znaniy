@@ -6,6 +6,7 @@ import time
 from urllib.parse import urlencode
 
 from app.max_api import files
+from app.max_api.keyboards import with_home
 
 API_HOST = "platform-api2.max.ru"
 POLL_TIMEOUT = 30
@@ -89,6 +90,18 @@ class MaxClient:
         """Загружает файл в MAX и возвращает вложение для send_message."""
         return files.upload_file(self, name, data)
 
+    def welcome_attachment(self):
+        from app.max_api.media import welcome
+        return welcome(self)
+
+    def receive_media(self, attachment):
+        from app.max_api.media import receive_media
+        return receive_media(self, attachment)
+
+    def upload_media(self, kind, name, data):
+        from app.max_api.media import upload_media
+        return upload_media(self, kind, name, data)
+
     def get_updates(self, marker):
         params = {"timeout": POLL_TIMEOUT, "types": "message_created,message_callback"}
         if marker is not None:
@@ -103,6 +116,7 @@ class MaxClient:
         return updates, next_marker
 
     def send_message(self, recipient, text, *, attachments=None):
+        attachments = with_home(attachments)
         payload = {"text": text}
         if attachments is not None:
             payload["attachments"] = attachments
@@ -119,7 +133,7 @@ class MaxClient:
 
     def answer(self, callback_id, *, text=None, notification=None, attachments=None):
         payload = (
-            {"message": {"text": text, "attachments": attachments or []}}
+            {"message": {"text": text, "attachments": with_home(attachments)}}
             if text is not None else {"notification": notification}
         )
         self.request("POST", "/answers", {"callback_id": callback_id}, payload=payload)

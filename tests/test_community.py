@@ -88,7 +88,7 @@ class CommunityTests(unittest.TestCase):
     def test_upgrade_preserves_registration_and_previous_schema(self):
         with self.store.connect() as conn:
             remove_community_fixture(conn)
-        self.assertEqual(migrate(self.store), ["005_community.sql"])
+        self.assertEqual(migrate(self.store), ["005_community.sql", "006_ux.sql"])
         self.assertEqual(migrate(self.store), [])
         self.assertEqual(self.store.registered_group(11), "А-01")
 
@@ -217,6 +217,8 @@ class CommunityTests(unittest.TestCase):
         press("skip")
         input_text((datetime.now(SAMARA) + timedelta(days=3)).strftime("%d.%m.%Y %H:%M"))
         press("skip")
+        press("keep")  # tags
+        press("keep")  # media
         self.assertIn("Предпросмотр", client.answer.call_args.kwargs["text"])
         self.assertEqual(self.query("SELECT count(*) FROM events"), [(0,)])
         press("save")

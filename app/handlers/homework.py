@@ -284,7 +284,7 @@ class HomeworkHandler(Handler):
             title = "Предпросмотр · общее задание" if draft.shared else "Предпросмотр · личное задание"
             text = self.details(draft.subject, draft.body, draft.deadline, files, title)
             buttons = [button("Сохранить", "yes")]
-        reply(text, buttons + [button("Отменить", "cancel")])
+        reply(text, buttons + ([button("⬅️ Назад", "prev")] if draft.step in ("body", "deadline", "files", "preview") else []) + [button("Отменить", "cancel")])
 
     def role_prompt(self, reply, draft):
         reply("Отправь MAX ID зарегистрированного пользователя из выбранной группы.",
@@ -298,6 +298,13 @@ class HomeworkHandler(Handler):
             if not remainder or not payload.startswith(f"d:{draft.token}:"):
                 raise ValueError("Кнопка устарела. Продолжи текущий черновик.")
             action, _, argument = remainder.partition(":")
+        if action == "prev":
+            steps = ["subject", "body", "deadline", "files", "preview"]
+            if draft.step not in steps or steps.index(draft.step) == 0:
+                raise ValueError("Вернуться назад нельзя.")
+            draft.move(steps[steps.index(draft.step) - 1])
+            self.prompt(reply, draft)
+            return
         if action == "cancel":
             del self.drafts[user]
             reply("Действие отменено.", custom_attachments=homework_menu_keyboard(has_draft=False))
