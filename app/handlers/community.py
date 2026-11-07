@@ -155,7 +155,7 @@ class CommunityHandler(Handler):
             back_btn = [] if review else [("Назад", "back")]
             reply(title if rows else title + "\nСписок пуст.", buttons + resume + back_btn)
         elif action == "filters" and len(parts) == 1 and parts[0] in ("events", "history"):
-            reply("🏷 Выбери тег", [(label, f"{parts[0]}:0:{key}") for key, label in TAGS.items()] + [("Все события", f"{parts[0]}:0")])
+            reply("🏷 Выбери тег", [(label, f"{parts[0]}:0:{key}") for key, label in TAGS.items()] + [("Назад", f"{parts[0]}:0")])
         elif action == "event_new" and not parts and db.scopes():
             draft = Draft("event")
             self.drafts.put(user, draft)
@@ -383,7 +383,7 @@ class CommunityHandler(Handler):
                 if draft.files:
                     text += "\nДобавлены: " + ", ".join(name for name, _ in draft.files)
                 buttons.append(button("Оставить файлы" if draft.files is None else "Готово", "keep"))
-            elif draft.id is not None or getattr(draft, key):
+            elif (draft.id is not None or getattr(draft, key)) and not (draft.kind == "report" and key == "body" and not draft.body):
                 buttons.append(button("Оставить значение", "keep"))
             if key in OPTIONAL and not (draft.kind == "report" and key == "body"):
                 buttons.append(button("Без медиа" if key == "media" else "Без файлов" if key == "files" else "Пропустить", "skip"))
@@ -432,7 +432,7 @@ class CommunityHandler(Handler):
                 item = db.save_report(draft) if draft.kind == "report" else db.save_event(draft) if draft.kind == "event" else db.save_material(draft)
                 saved = item is not None
             del self.drafts[user]
-            label = ("Мероприятие опубликовано." if draft.action == "publish" else
+            label = ("📸 Отчёт опубликован." if draft.kind == "report" else "Мероприятие опубликовано." if draft.action == "publish" else
                      "Мероприятие отменено." if draft.action == "event_cancel" else
                      "Предложение отправлено супер-администратору." if draft.kind == "event" and not db.super
                      else "Сохранено.")

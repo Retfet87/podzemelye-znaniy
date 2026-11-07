@@ -202,3 +202,27 @@ class UXDatabaseTests(unittest.TestCase):
             demo_main()
         self.assertEqual(self.query('SELECT count(*) FROM schedule_lessons'),[(672,)])
         self.assertEqual(self.query('SELECT count(*) FROM demo_records'),[(0,)])
+
+
+    def test_report_dialog_requires_preview_and_explicit_publication(self):
+        event = self.super.save_event(Draft('event', title='Отчёт', body='Событие', starts_at=datetime.now(SAMARA)+timedelta(days=1)))
+        self.assertTrue(self.super.transition(event,1,True))
+        self.query("UPDATE events SET starts_at = now() - interval '1 day' WHERE id = %s",(event,))
+        client = Mock()
+        handler = CommunityHandler()
+        router = build_router(Deps.create(client,self.store,90),community=handler)
+        router.dispatch(callback_update('community:report:'+str(event),user_id=90))
+        draft = handler.drafts[90]
+        update = message_update('Демо — подтверждённые итоги')
+        update['message']['sender']['user_id'] = 90
+        update['message']['recipient']['chat_type'] = 'dialog'
+        router.dispatch(update)
+        def press(action):
+            router.dispatch(callback_update('community:d:'+draft.token+':'+action,user_id=90))
+        press('skip')
+        press('keep')
+        self.assertIn('Предпросмотр отчёта',client.answer.call_args.kwargs['text'])
+        self.assertFalse(self.student.details(event)[3])
+        press('save')
+        self.assertTrue(self.student.details(event)[3])
+        self.assertIn('Отчёт опубликован',client.answer.call_args.kwargs['text'])
