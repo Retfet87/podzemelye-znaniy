@@ -24,7 +24,7 @@ def receive_media(client, attachment):
         token = payload.get('token')
         if not isinstance(token, str) or not token or len(token) > 4096 or any(c in token for c in '/?#\r\n'):
             raise ValueError("Видео недоступно.")
-        urls = client.request('GET', '/videos/' + token).get('urls', {})
+        urls = client.request('GET', '/videos/' + token, {}).get('urls', {})
         if isinstance(urls, dict):
             url = next((urls[k] for k in ('mp4_720', 'mp4_480', 'mp4_360', 'mp4_1080') if urls.get(k)), None)
     data = transfer(client.context, url, 'GET', limit=LIMITS[kind])

@@ -15,6 +15,7 @@ from app.handlers.community import Draft, CommunityHandler
 from app.handlers.homework import Draft as HomeworkDraft, HomeworkHandler
 from app.handlers.menus import HOME
 from app.max_api.media import upload_media, receive_media
+from app.max_api.client import MaxClient
 from app.max_api.keyboards import inline_keyboard
 from app.services.media import validate_media
 from app.timeutil import SAMARA
@@ -63,6 +64,13 @@ class UXInputTests(unittest.TestCase):
         with patch('app.max_api.media.validate_media', return_value='video/mp4'), patch('app.max_api.media.transfer', return_value=b'<retval>1</retval>'):
             self.assertEqual(upload_media(client, 'video', 'x.mp4', b'fixture'),
                              {'type':'video','payload':{'token':'video-token'}})
+
+    def test_video_without_url_uses_authenticated_video_lookup(self):
+        client = MaxClient('offline-token', None)
+        with patch.object(client, 'request', autospec=True, return_value={'urls':{'mp4_720':'https://omu.okcdn.ru/clip'}}) as request, patch('app.max_api.media.transfer', return_value=b'mp4-fixture'), patch('app.max_api.media.validate_media'):
+            self.assertEqual(receive_media(client, {'type':'video','payload':{'token':'video-token'}}),
+                             ('video','video.mp4',b'mp4-fixture'))
+            request.assert_called_once_with('GET','/videos/video-token',{})
 
     @unittest.skipUnless(shutil.which('ffprobe') and shutil.which('ffmpeg'), 'Нужны ffmpeg/ffprobe (есть в Docker).')
     def test_real_mp4_validation(self):
