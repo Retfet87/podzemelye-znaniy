@@ -13,6 +13,7 @@ from app.max_api.client import MaxError
 from app.notifications.worker import deliver_one
 from app.repositories.community import CommunityStore
 from app.repositories.homework import HomeworkStore
+from app.services.schedule_parser import Lesson
 from app.services.validation import validate_link
 from app.timeutil import SAMARA
 from helpers import handle_update
@@ -143,7 +144,7 @@ class CommunityTests(unittest.TestCase):
         self.assertEqual(send.call_args.args[0], {"user_id": 11})
         self.assertIn("отменено", send.call_args.args[1])
 
-    def test_material_scope_stale_revision_file_and_link(self):
+    def test_material_scope_stale_revision_file_link_and_delete(self):
         draft = Draft("material", group=self.a, category="study", title="Учебник",
                       body="Описание", link="https://example.org/book", files=[("book.txt", b"file")])
         self.assertIsNone(self.student.save_material(draft))
@@ -159,10 +160,25 @@ class CommunityTests(unittest.TestCase):
         self.assertIsNone(self.group_admin.save_material(draft))
         self.assertIsNone(self.student.file(material, 1, 1))
         self.assertEqual(self.student.file(material, 2, 1), ("book.txt", b"file"))
+        self.assertFalse(self.student.delete_material(material, 2))
+        self.assertTrue(self.group_admin.delete_material(material, 2))
+        self.assertIsNone(self.student.material(material))
         shared = Draft("material", category="links", title="Колледж", link="https://akvt.ru")
         self.assertIsNone(self.group_admin.save_material(shared))
         item = self.super.save_material(shared)
         self.assertEqual(self.outsider.material(item)[3], "https://akvt.ru")
+
+    def test_schedule_teachers_for_group_and_all(self):
+        today = datetime.now(SAMARA).date()
+        self.store.seed_legacy("teachers", ["А-01", "Б-02"], [
+            Lesson("А-01", 0, 1, "all", "Физика", "Яблокова М.В.", "ауд.401", "", ()),
+            Lesson("Б-02", 0, 2, "all", "ОПД", "Исхакова А.Р.", "ауд.232", "", ()),
+        ], today, today, None)
+        group_name, group_teachers = self.student.schedule_teachers(True)
+        self.assertEqual(group_name, "А-01")
+        self.assertEqual(group_teachers, [("Яблокова М.В.", "Физика", "ауд.401")])
+        _, all_teachers = self.student.schedule_teachers(False)
+        self.assertEqual(len(all_teachers), 2)
 
     def test_dialog_preview_and_private_callbacks(self):
         client = Mock()
