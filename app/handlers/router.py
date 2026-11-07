@@ -1,10 +1,15 @@
 """Роутер: разбирает событие и отдаёт его первому подходящему обработчику."""
+import logging
+
 from app.handlers.context import Context
+from app.max_api.client import MaxError
 from app.handlers.menus import HOME
 from app.handlers.registration import WELCOME, institution_keyboard
 from app.max_api.keyboards import inline_keyboard, callback_button
 import psycopg
 
+
+logger = logging.getLogger(__name__)
 
 
 class Router:
@@ -15,14 +20,30 @@ class Router:
     def dispatch(self, update):
         try:
             self._dispatch(update)
+        except MaxError:
+            # Polling owns retry/fatal authentication handling.
+            raise
         except psycopg.Error:
+            logger.warning('Database unavailable while handling an update')
+            self._error_reply(update, 'База временно недоступна. Попробуй ещё раз.')
+        except Exception:
+            # Never log the update body, attachments or access tokens.
+            logger.exception('Unexpected handler failure')
+            self._error_reply(update, 'Что-то пошло не так. Попробуй ещё раз или нажми «Домой».')
+
+    def _error_reply(self, update, text):
+        try:
             ctx = Context.parse(self.deps, update)
             if ctx.private and ctx.actor:
-                text = "База временно недоступна. Попробуй ещё раз."
-                if ctx.kind == "callback":
+                if ctx.kind == 'callback':
                     ctx.client.answer(ctx.callback_id, text=text, attachments=inline_keyboard([]))
                 else:
-                    ctx.client.send_message({"user_id": ctx.actor}, text, attachments=inline_keyboard([]))
+                    ctx.client.send_message({'user_id': ctx.actor}, text, attachments=inline_keyboard([]))
+        except MaxError:
+            raise
+        except Exception:
+            # One failed error response must not recursively retry or stop polling.
+            logger.exception('Unable to send handler error response')
 
     def _dispatch(self, update):
         ctx = Context.parse(self.deps, update)

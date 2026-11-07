@@ -26,6 +26,9 @@ def seed_useful(conn):
             VALUES (NULL,%s,%s,%s,%s) RETURNING id''',
             tuple(card[k] for k in ('category','title','body','link'))).fetchone()[0]
         conn.execute("INSERT INTO demo_records VALUES ('material',%s)", (item,))
+        if card['key'] == 'kruto-19':
+            conn.execute("INSERT INTO useful_files VALUES (%s,1,'DEMO_notes.txt',%s)",
+                         (item, card['body'].encode('utf-8')))
         conn.execute("INSERT INTO demo_fixture_keys VALUES ('useful-v1',%s,%s)", (card['key'],item))
         added += 1
     return added

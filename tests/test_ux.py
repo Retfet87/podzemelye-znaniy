@@ -153,6 +153,7 @@ class UXDatabaseTests(unittest.TestCase):
         self.assertFalse(seed(self.store))
         self.assertEqual(self.query('SELECT count(*) FROM useful_materials'),[(32,)])
         self.assertEqual(self.query('SELECT count(*) FROM demo_records'),[(39,)])
+        self.assertEqual(self.query('SELECT count(*) FROM useful_files'),[(1,)])
         for table in ('event_notifications','homework_notifications','schedule_notifications'):
             self.assertEqual(self.query('SELECT count(*) FROM ' + table),[(0,)])
         with self.store.connect() as conn:
