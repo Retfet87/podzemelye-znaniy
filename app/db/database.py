@@ -1,15 +1,20 @@
 """Подключение к локальной PostgreSQL."""
 from pathlib import Path
+from contextlib import contextmanager
+import logging
 
 import psycopg
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from psycopg.pq import TransactionStatus
+from psycopg.rows import tuple_row
 
 try:
     from psycopg_pool import ConnectionPool
 except ImportError:
     ConnectionPool = None  # Direct connections remain usable before optional rollout.
 
+
+logger = logging.getLogger(__name__)
 
 _pool_check = ConnectionPool.check_connection if ConnectionPool else None
 
@@ -49,6 +54,7 @@ class Database:
             raise ValueError("Размер пула должен быть от 0 до 16.")
         self.dsn = dsn
         self._pool = None
+        self._reset_callback = self._reset
         host = conninfo_to_dict(dsn)["host"]
         self._options = {"hostaddr": host} if host in ("127.0.0.1", "::1") else {}
         if pool_size:
@@ -57,7 +63,7 @@ class Database:
             self._pool = ConnectionPool(
                 dsn, min_size=0, max_size=pool_size, max_waiting=32, timeout=pool_timeout,
                 open=False, name="bot-database", check=_pool_check,
-                reset=self._reset, kwargs={"connect_timeout": 5, "prepare_threshold": None, **self._options})
+                kwargs={"connect_timeout": 5, "prepare_threshold": None, **self._options})
 
     @classmethod
     def from_config(cls, config):
@@ -68,24 +74,47 @@ class Database:
 
     def connect(self):
         if self._pool is not None:
-            self._pool.open()
-            return self._pool.connection()
+            return self._pooled_connection()
         return psycopg.connect(self.dsn, connect_timeout=5, **self._options)
+
+    @contextmanager
+    def _pooled_connection(self):
+        self._pool.open()
+        conn = self._pool.getconn()
+        try:
+            # Connection.__exit__ commits/rolls back and recognises pool ownership;
+            # explicit commits inside repositories (notification sender) still work.
+            with conn:
+                yield conn
+        finally:
+            try:
+                if not conn.closed:
+                    self._reset_callback(conn)
+            except BaseException as error:
+                conn.close()
+                if not isinstance(error, Exception):
+                    raise
+                logger.warning('Pool session reset failed; connection discarded')
+            finally:
+                self._pool.putconn(conn)
 
     @staticmethod
     def _reset(conn):
-        # Pool commits/rolls back before reset. Session locks survive commit;
-        # DISCARD ALL must finish before this connection is available again.
+        # Synchronous: release session locks BEFORE putconn, not in a queued
+        # maintenance task which can be dropped by an immediate pool.close().
         if conn.info.transaction_status != TransactionStatus.IDLE:
             conn.rollback()
-        autocommit = conn.autocommit
         try:
             conn.autocommit = True
             conn.execute('DISCARD ALL', prepare=False)
         finally:
-            conn.autocommit = autocommit
-        # Pooled connections disable auto-prepare: DISCARD ALL also removes
-        # server prepared statements, so retaining a client cache is unsafe.
+            conn.autocommit = False
+        conn.row_factory = tuple_row
+        conn.isolation_level = None
+        conn.read_only = None
+        conn.deferrable = None
+        conn.prepare_threshold = None
+        # DISCARD ALL removes prepared statements; disable the client cache too.
 
     def close(self):
         if self._pool is not None:

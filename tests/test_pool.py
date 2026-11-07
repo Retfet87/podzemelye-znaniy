@@ -253,3 +253,30 @@ class PoolTests(unittest.TestCase):
         with self.pool.connect() as conn:
             self.assertNotEqual(conn.info.backend_pid,pid)
             self.assertEqual(conn.execute('SELECT 1').fetchone(),(1,))
+
+    def test_close_closes_returned_connection_even_if_caller_retains_reference(self):
+        for _ in range(5):
+            db=Database(self.dsn,pool_size=1)
+            try:
+                with db.connect() as held:
+                    held.execute('SELECT pg_advisory_lock(%s)',(EVENT_LOCK,))
+                db.close()
+                self.assertTrue(held.closed)
+            finally:
+                db.close()
+                held.close()
+
+    def test_client_transaction_settings_cannot_poison_next_borrower(self):
+        from psycopg.rows import dict_row,tuple_row
+        with self.pool.connect() as conn:
+            conn.autocommit=True
+            conn.row_factory=dict_row
+            conn.isolation_level=psycopg.IsolationLevel.SERIALIZABLE
+            conn.read_only=True
+            conn.deferrable=True
+        with self.pool.connect() as conn:
+            self.assertFalse(conn.autocommit)
+            self.assertIs(conn.row_factory,tuple_row)
+            self.assertIsNone(conn.isolation_level)
+            self.assertIsNone(conn.read_only)
+            self.assertIsNone(conn.deferrable)

@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 import platform
 from threading import Lock, local
-from time import perf_counter
+from time import perf_counter, monotonic, sleep
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -34,6 +34,7 @@ from app.timeutil import SAMARA
 class Metrics:
     def __init__(self):
         self.lock = Lock()
+        self.pids = set()
         self.opened = self.live = self.peak = self.queries = self.checkouts = 0
 
 
@@ -45,6 +46,7 @@ class CountingConnection(psycopg.Connection):
         conn = super().connect(*args, **kwargs)
         conn.measurements = cls.metrics
         with conn.measurements.lock:
+            conn.measurements.pids.add(conn.info.backend_pid)
             conn.measurements.opened += 1
             conn.measurements.live += 1
             conn.measurements.peak = max(conn.measurements.peak, conn.measurements.live)
@@ -54,6 +56,14 @@ class CountingConnection(psycopg.Connection):
         with self.measurements.lock:
             self.measurements.queries += 1
         return super().execute(*args, **kwargs)
+
+    def __del__(self):
+        # psycopg's PGconn destructor closes a discarded maintenance connection
+        # without calling Connection.close(). Account for the equivalent close
+        # here, otherwise our instrumentation falsely reports a leak.
+        if hasattr(self, 'measurements'):
+            self.close()
+        super().__del__()
 
     def close(self):
         was_open = not self.closed
@@ -176,12 +186,23 @@ def measure(dsn, workload, count, workers, pool_size, event):
                 if hasattr(db, 'close'):
                     db.close()
     latencies = sorted(sample[0] for sample in samples)
-    assert metrics.live == 0, 'Connection leak after database.close()'
+    # Independent server check AFTER timing and instrumentation; not a monitor
+    # connection during the workload. No backend identifiers enter the report.
+    with psycopg.connect(dsn, autocommit=True) as observer:
+        deadline = monotonic() + 2
+        while True:
+            remaining = observer.execute('SELECT count(*) FROM pg_stat_activity WHERE pid=ANY(%s)',
+                                         (list(metrics.pids),)).fetchone()[0]
+            if not remaining or monotonic() >= deadline:
+                break
+            sleep(.01)
+    assert remaining == 0, 'Server connections remain after database.close()'
+    assert metrics.live == 0, 'Instrumented connection count did not return to zero'
     return {'workload':workload,'requests':count,'workers':workers,'pool_size':pool_size,
             'elapsed_seconds':round(elapsed,6),'mean_ms':round(sum(latencies)/count,3),
             'p95_ms':round(latencies[math.ceil(count*.95)-1],3),'errors':sum(x[1] for x in samples),
             'physical_connections_created':metrics.opened,'peak_established_connections':metrics.peak,
-            'connections_after_close':metrics.live,'checkouts':metrics.checkouts,'sql_execute_calls':metrics.queries}
+            'connections_after_close':metrics.live,'server_connections_after_close':remaining,'checkouts':metrics.checkouts,'sql_execute_calls':metrics.queries}
 
 
 def main():
