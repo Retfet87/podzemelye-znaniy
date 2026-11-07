@@ -49,7 +49,11 @@ with db.connect() as conn:
         "INSERT INTO useful_materials (category,title,body,link) VALUES ('study','ДЕМО','Проверка','') RETURNING id"
     ).fetchone()[0]
     conn.execute("INSERT INTO useful_files VALUES (%s,1,'useful.txt',%s)", (material, b"useful attachment"))
-    conn.execute("INSERT INTO form_drafts VALUES (900000001,'homework','{}',now()+interval '30 minutes')")
+    from app.handlers.homework import Draft, HomeworkHandler
+    from app.services.form_drafts import save
+    handler = HomeworkHandler()
+    handler.drafts.put(900000001, Draft(group, False, body='draft preserved', files=[('draft.txt', b'draft attachment')]))
+    save(conn, 900000001, [handler])
 PY
 compose down
 compose up -d migrate
@@ -64,7 +68,15 @@ with db.connect() as conn:
     assert conn.execute("SELECT count(*) FROM users").fetchone() == (1,)
     assert conn.execute("SELECT count(*) FROM event_notifications").fetchone() == (0,)
     assert conn.execute("SELECT count(*) FROM form_drafts").fetchone() == (1,)
-print("Данные и оба вида вложений пережили пересоздание контейнеров.")
+from app.handlers import Deps, build_router
+from app.handlers.homework import HomeworkHandler
+from scripts.smoke_test import OfflineMAX
+router = build_router(Deps.create(OfflineMAX(), db))
+router.dispatch({'update_type':'message_callback','callback':{'callback_id':'offline','payload':'hw:resume','user':{'user_id':900000001}},'message':{'recipient':{'chat_type':'dialog'},'body':{}}})
+handler = next(h for h in router.handlers if isinstance(h, HomeworkHandler))
+assert handler.drafts[900000001].files[0][1] == b'draft attachment'
+assert handler.drafts[900000001].body == 'draft preserved'
+print("Данные, вложения и возобновление формы пережили пересоздание контейнеров.")
 PY
 mkdir -p backups
 export BACKUP_UID=$(id -u) BACKUP_GID=$(id -g)
@@ -83,7 +95,7 @@ case "$scheduled_archive" in backup_*.dump) ;; *) echo "Не найден schedu
 compose exec -T postgres createdb -U podzemelye restore_scheduled_check
 compose exec -T postgres pg_restore -U podzemelye -d restore_scheduled_check --exit-on-error < "$root/backups/scheduled-v1/$scheduled_archive"
 scheduled_restored=$(compose exec -T postgres psql -U podzemelye -d restore_scheduled_check -Atc \
-    "SELECT encode(data,'hex') FROM homework_files; SELECT encode(data,'hex') FROM useful_files; SELECT count(*) FROM form_drafts; SELECT count(*) FROM schema_migrations;")
-expected_scheduled=$(printf '%s\n1\n7' "$expected")
+    "SELECT encode(data,'hex') FROM homework_files; SELECT encode(data,'hex') FROM useful_files; SELECT count(*) FROM form_drafts; SELECT count(*) FROM schema_migrations; SELECT payload #>> '{files,0,1,\$bytes}' FROM form_drafts;")
+expected_scheduled=$(printf '%s\n1\n7\nZHJhZnQgYXR0YWNobWVudA==' "$expected")
 test "$scheduled_restored" = "$expected_scheduled"
 echo "Docker: тесты, сохранение вложений/черновиков, one-shot и scheduled restore прошли."
