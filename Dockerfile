@@ -12,7 +12,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ ./app/
 COPY migrations/ ./migrations/
 COPY certificates/russian_trusted_root_ca.pem ./certificates/
-COPY main.py manage.py seed_demo.py seed_useful.py seed_akvt.py demo_bot.py ./
+COPY main.py manage.py seed_demo.py seed_useful.py seed_akvt.py demo_bot.py mini_app.py ./
+COPY web/ ./web/
 COPY fixtures/demo/ ./fixtures/demo/
 COPY scripts/ ./scripts/
 COPY assets/ ./assets/

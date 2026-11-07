@@ -16,3 +16,12 @@
 - Проверки: 122 теста, 51 пропуск, 71 выполнен успешно. Новые проверки покрывают запрет fallback/DSN overrides, marker failures, account/chat/recipient/callback isolation, выключатель и запрет уведомлений. Проверен синтаксис shell/YAML и diff.
 - Добавлены DB-тесты конкурентного seed и сохранения неотмеченной карточки с совпадающим названием; они НЕ выполнены (нет PostgreSQL/Docker). Docker image/build, SQL provisioning/roles, DB seed/cleanup и реальные MAX-запуски остаются обязательным барьером перед показом. Mini-app и live-переключение не выполнялись.
 - Это реализация для review, не подтверждение готовности к развёртыванию. Никаких миграций, seed или poller в этой сессии не запускалось. Commit с сообщением `feat: isolate judge demo data and gate all demo output`; SHA в отчёте чата, без push.
+
+## C3 — web mini-app для review
+
+- C2 зафиксирован коммитом `c8e8d7e`.
+- Добавлены три read-only вкладки и API через существующие репозитории. Сервер проверяет MAX initData на каждом запросе; нет небезопасного fallback на user_id/unsafe-профиль, нет записи/cookies/CORS. Demo web требует allowlist/hot switch и маркируется.
+- Официальная документация Bridge повторно проверена: script URL и window.WebApp.initData подтверждены. Mini-app entrypoint выключен по умолчанию, не запускает polling/миграции. Рабочий бот не изменён.
+- Проверки: синтетические auth/API-тесты, отказ до DB без авторизации, маскирование ошибок, demo hot switch до чтения и ответа. Добавлен DB-тест разделения личных/групповых заданий, он пока пропускается.
+- Ограничения: PostgreSQL/Docker, реальный MAX, HTTPS-подключение и визуальный прогон не выполнены. Локальный viewer завершился таймаутом; временный preview-сервер остановлен. Критерий 10.4.1 пока не подтверждён. Подробности в WEB.md.
+- Commit с сообщением `feat: add authenticated read-only MAX mini app for review`, SHA в отчёте чата, без push.

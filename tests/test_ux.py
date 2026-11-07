@@ -191,6 +191,21 @@ class UXDatabaseTests(unittest.TestCase):
             self.assertEqual(sorted(executor.map(apply, range(2))), [0, 32])
         self.assertEqual(self.query('SELECT count(*) FROM demo_records'), [(32,)])
 
+    def test_web_views_preserve_homework_scope_and_hide_unpublished_events(self):
+        from app.web import ReadViews
+        self.query("INSERT INTO homework (group_id,owner_id,subject,body) VALUES (%s,11,'A','personal-A'),(%s,12,'B','personal-B'),(%s,NULL,'A','shared-A'),(%s,NULL,'B','shared-B')",(self.a,self.b,self.a,self.b))
+        views=ReadViews(self.store)
+        a='\n'.join(views.read(11,'/api/homework')['items'])
+        b='\n'.join(views.read(12,'/api/homework')['items'])
+        self.assertIn('personal-A',a)
+        self.assertIn('shared-A',a)
+        self.assertNotIn('personal-B',a)
+        self.assertNotIn('shared-B',a)
+        self.assertIn('personal-B',b)
+        self.assertNotIn('personal-A',b)
+        self.super.save_event(Draft('event',title='unpublished-secret',body='draft',starts_at=datetime.now(SAMARA)+timedelta(days=1)))
+        self.assertNotIn('unpublished-secret','\n'.join(views.read(11,'/api/events')['items']))
+
     def test_registration_illustration_only_once_and_private_callbacks(self):
         class Client(OfflineMAX):
             count = 0

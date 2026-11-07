@@ -29,3 +29,9 @@
 !fixtures/demo/*.json
 
 !scripts/test_offline.py
+
+!mini_app.py
+!web/
+!web/*.html
+!web/*.js
+!web/*.css
