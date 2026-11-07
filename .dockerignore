@@ -35,3 +35,5 @@
 !web/*.html
 !web/*.js
 !web/*.css
+
+!scripts/test_isolated.py

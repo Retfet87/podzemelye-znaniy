@@ -33,6 +33,8 @@ def main():
         return {}
 
     environment = {'PATH':os.environ.get('PATH',os.defpath), 'TEST_DATABASE_URL':dsn}
+    if os.environ.get('VALIDATION_DEMO_DATABASE_URL'):
+        environment['VALIDATION_DEMO_DATABASE_URL'] = os.environ['VALIDATION_DEMO_DATABASE_URL']
     if os.environ.get('AKVT_TEST_XLS'):
         environment['AKVT_TEST_XLS'] = os.environ['AKVT_TEST_XLS']
     with patch.dict(os.environ,environment,clear=True), patch.object(config,'load_config',safe_config):
