@@ -86,3 +86,5 @@
 - 007_form_drafts: JSON/base64, TTL, владелец, сохранение/отмена после restart; общая транзакция публикации и потребления формы, savepoint/recovery. Polling lease не возвращается в пул, запрет дубля в одной базе и остановка при потере lease.
 - Opt-in ежедневный backup в отдельной отмеченной папке; ротация выключена, старые архивы не затрагиваются. Docker-сценарий включает настоящее восстановление обоих типов дампа; локально Docker отсутствует, результат Actions отдельно в VALIDATION.md.
 - 202 total / 201 passed / 1 skipped / 0 failed на отдельной PostgreSQL; плюс 1 smoke passed. Ручной MAX не выполнялся, рабочая среда не изменялась. Документы: HANDOFF_TO_TEAM.md, INTEGRATIONS.md, DEMO.md, DEPLOYMENT.md.
+
+- Docker подтверждён в GitHub Actions для `9501546`: 202 total / 198 passed / 4 skipped (нет XLS) / 0 failed, плюс smoke, recreate/resume и настоящий one-shot/scheduled restore. Реальный MP4 прошёл в контейнере, XLS-проверки прошли отдельно native. Обычный push C1–C10 выполнен, PR №1 обновлён без merge/deploy. Локально Docker отсутствует, native test cluster остановлен; подробности в VALIDATION.md.

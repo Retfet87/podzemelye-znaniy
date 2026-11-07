@@ -1,0 +1,47 @@
+{
+  "code_commit": "950154668148f782272dd2384c8239441c613d45",
+  "native": {
+    "total": 202,
+    "passed": 201,
+    "skipped": 1,
+    "failed": 0,
+    "seconds": 11.575,
+    "skip_reason": "ffmpeg missing; MP4 executed in Docker",
+    "postgresql": "16.9",
+    "python": "3.12",
+    "real_public_xls": true,
+    "smoke_passed": 1
+  },
+  "offline": {
+    "total": 202,
+    "passed": 119,
+    "skipped": 83,
+    "failed": 0
+  },
+  "docker": {
+    "run_url": "https://github.com/Retfet87/podzemelye-znaniy/actions/runs/42402529482",
+    "conclusion": "success",
+    "total": 202,
+    "passed": 198,
+    "skipped": 4,
+    "failed": 0,
+    "seconds": 16.478,
+    "skip_reason": "AKVT_TEST_XLS not supplied; these four tests passed natively",
+    "smoke_passed": 1,
+    "container_recreation": true,
+    "form_resumed": true,
+    "one_shot_restore": true,
+    "scheduled_restore": true,
+    "restored_files": [
+      "homework bytea",
+      "useful bytea",
+      "draft JSON base64"
+    ],
+    "restored_migrations": 7
+  },
+  "production_changed": false,
+  "real_max_called": false,
+  "scheduler_enabled_in_production": false,
+  "rotation_enabled_in_production": false,
+  "mini_app_extended": false
+}
