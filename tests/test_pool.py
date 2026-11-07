@@ -20,6 +20,10 @@ from app.max_api.client import MaxError
 from app.notifications.worker import deliver_one
 from app.repositories.community import CommunityStore
 from app.repositories.users import UserRepository
+from app.repositories.homework import HomeworkStore
+from app.handlers.homework import Draft as HomeworkDraft
+from app.services.schedule_parser import Lesson
+from app.services.schedule_publisher import preview, decide
 from app.timeutil import SAMARA
 from test_db import TEST_URL
 
@@ -214,3 +218,38 @@ class PoolTests(unittest.TestCase):
                 break
             time.sleep(.01)
         self.assertEqual(count,0)
+
+
+    def test_migration_and_repository_writes_use_pool_without_nested_checkouts(self):
+        extra=self.name+'_fresh'
+        self.control.execute(sql.SQL('CREATE SCHEMA {}').format(sql.Identifier(extra)))
+        self.addCleanup(self.control.execute,sql.SQL('DROP SCHEMA {} CASCADE').format(sql.Identifier(extra)))
+        db=self.enterContext(Database(make_conninfo(self.dsn,options=f'-c search_path={extra},public'),pool_size=1))
+        self.assertEqual(len(migrate(db)),6)
+        self.assertEqual(migrate(db),[])
+        db.check_schema()
+        monday=datetime.now(SAMARA).date()
+        monday-=timedelta(days=monday.weekday())
+        lesson=Lesson('POOL-01',0,1,'all','Предмет','','','',())
+        token,*_=preview(db,90,'pool-fixture',['POOL-01'],[lesson],monday,monday+timedelta(days=13),monday,
+                         scope='base',dry_run=False)
+        self.assertEqual(decide(db,90,90,token,confirm=True),'applied')
+        users=UserRepository(db)
+        gid=users.active_groups()[0][0]
+        users.start(11)
+        self.assertEqual(users.choose_group(11,gid),('saved','POOL-01'))
+        tasks=HomeworkStore(db,11,90)
+        task=tasks.save(HomeworkDraft(gid,False,subject='Предмет',body='Задание',files=[('a.txt',b'attachment')]))
+        self.assertIsNotNone(tasks.get(task))
+        with db.connect() as conn:
+            self.assertEqual(conn.execute('SELECT data FROM homework_files WHERE homework_id=%s',(task,)).fetchone(),(b'attachment',))
+        material=CommunityStore(db,90,90).save_material(Draft('material',category='study',title='Пример',body='Описание',files=[('a.txt',b'material')]))
+        self.assertEqual(CommunityStore(db,11,90).file(material,1,1),('a.txt',b'material'))
+
+    def test_terminated_backend_is_replaced_before_next_query(self):
+        with self.pool.connect() as conn:
+            pid=conn.info.backend_pid
+        self.assertTrue(self.control.execute('SELECT pg_terminate_backend(%s)',(pid,)).fetchone()[0])
+        with self.pool.connect() as conn:
+            self.assertNotEqual(conn.info.backend_pid,pid)
+            self.assertEqual(conn.execute('SELECT 1').fetchone(),(1,))

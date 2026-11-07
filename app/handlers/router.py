@@ -24,9 +24,13 @@ class Router:
             # Polling owns retry/fatal authentication handling.
             raise
         except psycopg.Error:
+            if self.deps.health is not None:
+                self.deps.health.handler_error()
             logger.warning('Database unavailable while handling an update')
             self._error_reply(update, 'База временно недоступна. Попробуй ещё раз.')
         except Exception:
+            if self.deps.health is not None:
+                self.deps.health.handler_error()
             # Never log the update body, attachments or access tokens.
             logger.exception('Unexpected handler failure')
             self._error_reply(update, 'Что-то пошло не так. Попробуй ещё раз или нажми «Домой».')

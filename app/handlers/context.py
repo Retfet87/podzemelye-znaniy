@@ -19,11 +19,12 @@ class Deps:
     schedules: ScheduleRepository
     admin: int | None = None
     today: TodayService | None = None
+    health: object | None = None
 
     @classmethod
-    def create(cls, client, db, admin=None):
+    def create(cls, client, db, admin=None, *, health=None):
         schedules = ScheduleRepository(db)
-        return cls(client, db, UserRepository(db), schedules, admin, TodayService(db, schedules))
+        return cls(client, db, UserRepository(db), schedules, admin, TodayService(db, schedules), health)
 
 
 @dataclass(frozen=True)

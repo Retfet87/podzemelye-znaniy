@@ -95,8 +95,7 @@ class UXDatabaseTests(unittest.TestCase):
         self.query("INSERT INTO demo_environment VALUES ('podzemelye-demo-v1')")
         with patch('app.bootstrap.load_config',return_value={'MAX_BOT_TOKEN':'synthetic-only'}), \
                 patch('app.bootstrap.max_tls_context',return_value=None), \
-                patch('app.bootstrap.Database',return_value=self.store), \
-                patch('app.bootstrap.local_dsn',return_value=self.store.dsn), \
+                patch('app.bootstrap.Database.from_config',return_value=self.store), \
                 patch('app.bootstrap.MaxClient') as client, \
                 patch('app.bootstrap.run_polling') as poll, self.assertLogs('app.bootstrap'):
             self.assertEqual(main(),1)

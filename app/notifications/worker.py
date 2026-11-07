@@ -97,11 +97,16 @@ def send_job(conn, send, max_error, table, condition, key, user, body, attempts,
     return True
 
 
-def work_notifications(store, send, max_error, stop, *, homework=True, schedule=True, events=False):
+def work_notifications(store, send, max_error, stop, *, homework=True, schedule=True, events=False, health=None):
     while not stop.is_set():
         try:
             worked = deliver_one(store, send, max_error, homework=homework, schedule=schedule, events=events)
         except psycopg.Error:
             logger.warning("PostgreSQL: очередь уведомлений временно недоступна.")
             worked = False
+        except Exception:
+            logger.error('Notification worker stopped after unexpected failure')
+            if health is not None:
+                health.critical('notification_worker_failure')
+            return
         stop.wait(1 if worked else 3)
