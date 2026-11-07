@@ -73,6 +73,9 @@ def transfer(context, url, method, *, limit, body=None, headers=None):
         connection.request(method, target, body=body, headers=headers or {})
         response = connection.getresponse()
         length = response.getheader("Content-Length")
+        if length is not None and (not isinstance(length, str) or not length.isascii()
+                                   or not length.isdecimal() or len(length) > 12):
+            raise ValueError("MAX не передал файл допустимого размера.")
         if not 200 <= response.status < 300 or (length is not None and not 0 <= int(length) <= limit):
             raise ValueError("MAX не передал файл допустимого размера.")
         data = response.read(limit + 1)

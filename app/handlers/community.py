@@ -91,7 +91,8 @@ class CommunityHandler(Handler):
         text = text.strip() if isinstance(text, str) else ""
         lowered = " ".join(text.lower().split())
         command = text.split(maxsplit=1)[0] if text else ""
-        if payload is None and (command in ("/events", "/useful") or lowered in EVENT_TRIGGERS | USEFUL_TRIGGERS):
+        if payload is None and (command in ("/events", "/useful") or
+                                user not in self.drafts and lowered in EVENT_TRIGGERS | USEFUL_TRIGGERS):
             payload = "events:0" if (command == "/events" or lowered in EVENT_TRIGGERS) else "useful"
         elif payload is None and (user not in self.drafts or command.startswith("/")):
             return False
@@ -184,33 +185,7 @@ class CommunityHandler(Handler):
                 + [("Назад", "back")],
             )
         elif action == "teachers_auto" and len(parts) in (1, 2) and parts[0] in ("group", "all"):
-            mode = parts[0]
-            offset = number(parts[1], zero=True) if len(parts) == 2 else 0
-            group_only = mode == "group"
-            group_name, teachers = db.schedule_teachers(group_only)
-            if group_only and group_name is None:
-                raise ValueError("Сначала выбери группу через /start.")
-            header = f"Преподаватели группы {group_name}" if group_only else "Все преподаватели (из расписания)"
-            if not teachers:
-                reply(f"{header}\nРасписание пока не загружено или преподаватели не указаны.",
-                      [("Назад", f"materials:teachers:{MAX_ID}")])
-                return
-            page_size = 15
-            chunk = teachers[offset:offset + page_size]
-            lines = [header, ""]
-            for t_name, subj_str, room_str in chunk:
-                details = " · ".join(filter(None, (subj_str, room_str)))
-                lines.append(f"• {t_name}" + (f" — {details}" if details else ""))
-            nav_buttons = []
-            if offset > 0:
-                nav_buttons.append(("Предыдущие", f"teachers_auto:{mode}:{max(0, offset - page_size)}"))
-            if offset + page_size < len(teachers):
-                nav_buttons.append(("Следующие", f"teachers_auto:{mode}:{offset + page_size}"))
-            other_mode = "all" if group_only else "group"
-            other_label = "Все преподаватели" if group_only else "Преподаватели группы"
-            nav_buttons.append((other_label, f"teachers_auto:{other_mode}:0"))
-            nav_buttons.append(("Назад", f"materials:teachers:{MAX_ID}"))
-            reply("\n".join(lines), nav_buttons)
+            self.show_teachers(db, parts, reply)
         elif action == "materials" and len(parts) == 2 and parts[0] in CATEGORIES:
             category, raw = parts
             before = number(raw)
@@ -275,6 +250,44 @@ class CommunityHandler(Handler):
                       buttons + [("К списку", f"materials:{category}:{MAX_ID}")])
         else:
             raise ValueError("Действие недоступно.")
+
+    @staticmethod
+    def show_teachers(db, parts, reply):
+        mode = parts[0]
+        offset = number(parts[1], zero=True) if len(parts) == 2 else 0
+        group_only = mode == "group"
+        group_name, teachers = db.schedule_teachers(group_only)
+        if group_only and group_name is None:
+            raise ValueError("Сначала выбери группу через /start.")
+        header = f"Преподаватели группы {group_name}" if group_only else "Все преподаватели (из расписания)"
+        if not teachers:
+            reply(f"{header}\nРасписание пока не загружено или преподаватели не указаны.",
+                  [("Назад", f"materials:teachers:{MAX_ID}")])
+            return
+        page_size = 15
+        lines = [header, ""]
+        shown = 0
+        used = len(header) + 2
+        for t_name, subj_str, room_str in teachers[offset:offset + page_size]:
+            details = " · ".join(filter(None, (subj_str, room_str)))
+            line = f"• {t_name}" + (f" — {details}" if details else "")
+            if len(line) > 3400:
+                line = line[:3399] + "…"
+            if shown and used + len(line) + 1 > 3600:
+                break
+            lines.append(line)
+            used += len(line) + 1
+            shown += 1
+        nav_buttons = []
+        if offset > 0:
+            nav_buttons.append(("Предыдущие", f"teachers_auto:{mode}:{max(0, offset - page_size)}"))
+        if offset + shown < len(teachers):
+            nav_buttons.append(("Следующие", f"teachers_auto:{mode}:{offset + shown}"))
+        other_mode = "all" if group_only else "group"
+        other_label = "Все преподаватели" if group_only else "Преподаватели группы"
+        nav_buttons.append((other_label, f"teachers_auto:{other_mode}:0"))
+        nav_buttons.append(("Назад", f"materials:teachers:{MAX_ID}"))
+        reply("\n".join(lines), nav_buttons)
 
     @staticmethod
     def material_text(title, body, link, names, scope="Предпросмотр материала"):

@@ -213,14 +213,6 @@ class CommunityStore:
 
     def delete_material(self, item, revision):
         with self.store.connect() as conn:
-            conn.execute(
-                f"""DELETE FROM useful_files WHERE material_id IN (
-                    SELECT id FROM useful_materials m
-                    WHERE id = %(id)s AND revision = %(revision)s
-                      AND {self.editable_material('m.group_id')}
-                )""",
-                self.params | {"id": item, "revision": revision},
-            )
             return bool(conn.execute(
                 f"""DELETE FROM useful_materials m
                     WHERE id = %(id)s AND revision = %(revision)s
@@ -236,29 +228,37 @@ class CommunityStore:
                    WHERE u.max_user_id = %(actor)s AND g.active""",
                 self.params,
             ).fetchone()
-            if group_only and not user_group:
+            if not user_group and not self.super:
                 return None, []
 
-            latest_base = conn.execute(
-                "SELECT max(id) FROM schedule_imports WHERE scope = 'base'"
-            ).fetchone()[0]
-            if not latest_base:
-                return (user_group[1] if user_group else None), []
-
-            if group_only:
-                rows = conn.execute(
-                    """SELECT DISTINCT l.teacher, l.subject, l.room
-                       FROM schedule_lessons l
-                       WHERE l.import_id = %s AND l.group_id = %s AND btrim(l.teacher) <> ''""",
-                    (latest_base, user_group[0]),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    """SELECT DISTINCT l.teacher, l.subject, l.room
-                       FROM schedule_lessons l
-                       WHERE l.import_id = %s AND btrim(l.teacher) <> ''""",
-                    (latest_base,),
-                ).fetchall()
+            rows = conn.execute(
+                """WITH selected_groups AS (
+                       SELECT id FROM groups WHERE active AND (%s::bigint IS NULL OR id = %s)
+                   ), versions AS (
+                       SELECT g.id AS group_id,
+                              (SELECT i.id FROM schedule_groups sg
+                               JOIN schedule_imports i ON i.id = sg.import_id
+                               WHERE sg.group_id = g.id AND i.scope = 'base'
+                                 AND i.valid_from <= (now() AT TIME ZONE 'Europe/Samara')::date
+                                 AND i.valid_to >= (now() AT TIME ZONE 'Europe/Samara')::date
+                               ORDER BY i.id DESC LIMIT 1) AS import_id
+                       FROM selected_groups g
+                       UNION
+                       SELECT sg.group_id, i.id FROM schedule_groups sg
+                       JOIN schedule_imports i ON i.id = sg.import_id
+                       JOIN selected_groups g ON g.id = sg.group_id
+                       WHERE i.scope = 'date' AND i.published_at IS NOT NULL
+                         AND i.valid_from = (now() AT TIME ZONE 'Europe/Samara')::date
+                         AND i.id = (SELECT max(newer.id) FROM schedule_imports newer
+                                     JOIN schedule_groups ng ON ng.import_id = newer.id
+                                     WHERE ng.group_id = sg.group_id AND newer.scope = 'date'
+                                       AND newer.valid_from = i.valid_from)
+                   )
+                   SELECT DISTINCT l.teacher, l.subject, l.room FROM schedule_lessons l
+                   JOIN versions v ON v.import_id = l.import_id AND v.group_id = l.group_id
+                   WHERE btrim(l.teacher) <> ''""",
+                ((user_group[0] if group_only and user_group else None),) * 2,
+            ).fetchall()
 
         subjects_by_teacher = defaultdict(set)
         rooms_by_teacher = defaultdict(set)

@@ -37,7 +37,7 @@ class ScheduleHandler(Handler):
     def on_callback(self, ctx):
         if not ctx.payload.startswith("schedule:"):
             return False
-        if ctx.chat_type in ("chat", "channel"):
+        if not ctx.private:
             ctx.client.answer(ctx.callback_id, notification="Открой расписание в личном диалоге с ботом.")
             return True
         self.show(ctx, ctx.payload.removeprefix("schedule:"))
@@ -51,7 +51,10 @@ class ScheduleHandler(Handler):
             if is_message or callback_id is None:
                 client.send_message({"user_id": user_id}, text or notification, attachments=attachments)
             else:
-                client.answer(callback_id, text=text, notification=notification, attachments=attachments)
+                if text is None:
+                    client.answer(callback_id, notification=notification)
+                else:
+                    client.answer(callback_id, text=text, attachments=attachments)
 
         try:
             if action in PERIODS:

@@ -34,7 +34,7 @@ def run_polling(client, router):
             try:
                 router.dispatch(update)
             except MaxError as error:
-                if error.status in (None, 401, 403) and not error.retryable:
+                if error.status in (None, 401) and not error.retryable:
                     raise
                 # При обрыве связи сервер мог уже принять POST.
                 logger.warning("Ответ на событие не подтверждён. %s", error)

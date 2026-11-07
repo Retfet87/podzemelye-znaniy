@@ -1,7 +1,6 @@
 import os
 import tempfile
 import unittest
-from collections import Counter
 from datetime import date
 from pathlib import Path
 from unittest.mock import Mock, patch

@@ -127,6 +127,12 @@ class HomeworkTests(unittest.TestCase):
                         deadline=datetime.now(SAMARA) + timedelta(hours=hours) if hours else None)
         return Draft(**(defaults | fields))
 
+    def test_registered_super_admin_can_manage_other_groups(self):
+        self.store.start(90)
+        self.store.choose_group(90, self.a)
+        self.assertEqual({row[0] for row in self.super.groups(True)}, {self.a, self.b})
+        self.assertEqual([row[0] for row in self.super.groups(False)], [self.a])
+
     def test_stage_four_upgrade_preserves_data_and_runs_once(self):
         with self.store.connect() as conn:
             remove_homework_fixture(conn)

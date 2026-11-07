@@ -2,13 +2,19 @@
 from pathlib import Path
 
 import psycopg
-from psycopg.conninfo import conninfo_to_dict
+from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
 MIGRATIONS = Path(__file__).resolve().parent.parent.parent / "migrations"
 
 
 def local_dsn(config, key="DATABASE_URL"):
-    """Только локальная БД; не выводим значение строки подключения."""
+    """Разрешает loopback либо фиксированный сервис Compose без раскрытия пароля."""
+    if key == "DATABASE_URL" and config.get("BOT_CONFIG_MODE") == "compose":
+        password = config.get("POSTGRES_PASSWORD")
+        if not password:
+            raise ValueError("Укажи POSTGRES_PASSWORD для Docker Compose.")
+        return make_conninfo(host="postgres", dbname=config.get("POSTGRES_DB", "podzemelye"),
+                             user=config.get("POSTGRES_USER", "postgres"), password=password)
     dsn = config.get(key)
     if not dsn:
         raise ValueError(f"Укажи {key} в .env.")
@@ -34,7 +40,8 @@ class Database:
 
     def connect(self):
         host = conninfo_to_dict(self.dsn)["host"]
-        return psycopg.connect(self.dsn, hostaddr=host, connect_timeout=5)
+        options = {"hostaddr": host} if host in ("127.0.0.1", "::1") else {}
+        return psycopg.connect(self.dsn, connect_timeout=5, **options)
 
     def check_schema(self):
         with self.connect() as conn:

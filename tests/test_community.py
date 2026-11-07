@@ -73,6 +73,18 @@ class CommunityTests(unittest.TestCase):
     def unthrottle(self):
         self.query("UPDATE schedule_notification_rate SET next_send = now()")
 
+    def test_teacher_directory_requires_membership(self):
+        self.assertEqual(self.unregistered.schedule_teachers(False), (None, []))
+
+    def test_material_deletion_checks_revision_before_removing_files(self):
+        draft = Draft("material", group=self.a, category="study", title="Файл",
+                      body="Описание", files=[("file.txt", b"test")])
+        item = self.group_admin.save_material(draft)
+        self.assertFalse(self.group_admin.delete_material(item, 0))
+        self.assertEqual(self.student.file(item, 1, 1), ("file.txt", b"test"))
+        self.assertTrue(self.group_admin.delete_material(item, 1))
+        self.assertIsNone(self.student.material(item))
+
     def test_upgrade_preserves_registration_and_previous_schema(self):
         with self.store.connect() as conn:
             remove_community_fixture(conn)

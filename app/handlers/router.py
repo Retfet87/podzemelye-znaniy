@@ -12,7 +12,12 @@ class Router:
         if ctx.kind == "ignored":
             return
         method = "on_message" if ctx.kind == "message" else "on_callback"
-        for handler in self.handlers:
+        handlers = self.handlers
+        if ctx.kind == "message" and not (isinstance(ctx.text, str) and ctx.text.strip().startswith("/")):
+            active = [handler for handler in handlers
+                      if handler.drafts is not None and ctx.actor in handler.drafts]
+            handlers = active + [handler for handler in handlers if handler not in active]
+        for handler in handlers:
             if getattr(handler, method)(ctx):
                 self._keep_single_draft(handler, ctx.actor)
                 return

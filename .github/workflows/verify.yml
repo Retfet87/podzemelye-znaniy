@@ -1,0 +1,17 @@
+name: Verify bot and Docker
+on:
+  push:
+    branches: [main, 'review/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-docker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Test without a MAX bot token
+        run: sh scripts/check_docker.sh

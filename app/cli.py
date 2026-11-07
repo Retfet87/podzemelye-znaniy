@@ -20,8 +20,10 @@ def main():
     groups.add_argument("names", nargs="+")
     inspect = commands.add_parser("inspect-schedule", help="разобрать XLS без подключения к БД")
     inspect.add_argument("file")
+    inspect.add_argument("--gray-other-building", action="store_true")
     schedule = commands.add_parser("import-schedule", help="предпросмотр XLS без публикации")
     schedule.add_argument("file")
+    schedule.add_argument("--gray-other-building", action="store_true")
     schedule.add_argument("--scope", choices=("base", "date"), required=True)
     schedule.add_argument("--from", dest="start", type=date.fromisoformat, required=True)
     schedule.add_argument("--to", dest="end", type=date.fromisoformat)
@@ -35,7 +37,7 @@ def main():
     args = parser.parse_args()
     try:
         if args.command in ("inspect-schedule", "import-schedule"):
-            digest, names, lessons = parse_xls(args.file)
+            digest, names, lessons = parse_xls(args.file, gray_other_building=args.gray_other_building)
             if args.command == "inspect-schedule":
                 print_summary(names, lessons)
                 return 0

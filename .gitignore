@@ -11,3 +11,4 @@ backups/
 *.dump
 *.tar.gz
 bolshoe-raspisanie*.xls
+!.env.docker.example

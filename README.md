@@ -158,3 +158,8 @@ docker compose exec bot python manage.py import-schedule "bolshoe-raspisanie-p-2
 docker compose down
 docker compose up -d
 ```
+## Этап 7 и проверка команды
+
+Инструкция контейнерного запуска, восстановления базы и сценарий хакатона находятся в [DEPLOYMENT.md](DEPLOYMENT.md). Для автоматической проверки без токена MAX запусти `sh scripts/check_docker.sh`.
+
+Серая заливка XLS трактуется как «Другой корпус» только при явно указанном `--gray-other-building` у `inspect-schedule` или `import-schedule`, после проверки легенды расписания.

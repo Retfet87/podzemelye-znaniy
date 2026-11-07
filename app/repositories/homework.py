@@ -56,7 +56,7 @@ class HomeworkStore:
             # Если пользователь зарегистрирован в группе (member=True),
             # для просмотра заданий используем сразу его группу без лишнего выбора.
             member_rows = [(gid, name, can_manage) for gid, name, can_manage, is_member in rows if is_member]
-            if member_rows:
+            if member_rows and not shared:
                 return member_rows
             return [(gid, name, can_manage) for gid, name, can_manage, _ in rows]
 

@@ -86,7 +86,7 @@ def parse_block(values, split, group, weekday, pair, gray_flags=()):
                      tuple(rows))
 
 
-def parse_xls(path):
+def parse_xls(path, *, gray_other_building=False):
     with Path(path).open("rb") as file:
         source = file.read(8 * 1024 * 1024 + 1)
     if len(source) > 8 * 1024 * 1024:
@@ -161,7 +161,7 @@ def parse_xls(path):
             used_rows.update(range(row, row + 4))
             for col, name in groups.items():
                 values = [value(r, col) for r in range(row, row + 4)]
-                gray_flags = [is_gray(r, col) for r in range(row, row + 4)]
+                gray_flags = [gray_other_building and is_gray(r, col) for r in range(row, row + 4)]
                 split = separator(row, col)
                 lessons.extend(parse_block(values, split, name, weekday, pair, gray_flags))
     for r in range(header + 1, sheet.nrows):

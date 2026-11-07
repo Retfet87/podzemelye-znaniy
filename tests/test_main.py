@@ -110,7 +110,8 @@ def callback_update(payload="group:5", *, user_id=10):
             "payload": payload,
             "user": {"user_id": user_id, "is_bot": False},
         },
-        "message": {"sender": {"user_id": 99, "is_bot": True}},
+        "message": {"sender": {"user_id": 99, "is_bot": True},
+                    "recipient": {"chat_type": "dialog"}},
     }
 
 

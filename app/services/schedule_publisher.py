@@ -80,7 +80,8 @@ def preview(store, owner, digest, names, lessons, start, end, anchor, *, scope,
             or (scope == "date" and (start != end or not selected))
             or (scope == "base" and selected) or (anchor and anchor.weekday())):
         raise ValueError("Проверь режим, группы, даты и понедельник числителя.")
-    if not dry_run and (owner is None or start < current_week_monday()):
+    minimum_start = datetime.now(SAMARA).date() if scope == "date" else current_week_monday()
+    if not dry_run and (owner is None or start < minimum_start):
         raise ValueError("Для публикации нужны настроенный администратор и дата не раньше текущей недели.")
     by_group = defaultdict(list)
     names = set(names)
@@ -195,7 +196,9 @@ def decide(store, configured_admin, actor, token, *, confirm):
         if not confirm:
             conn.execute("UPDATE schedule_previews SET status = 'cancelled' WHERE token = %s", (token,))
             return "cancelled"
-        if not fresh or date.fromisoformat(candidate["start"]) < current_week_monday():
+        minimum_start = (datetime.now(SAMARA).date() if candidate["scope"] == "date"
+                         else current_week_monday())
+        if not fresh or date.fromisoformat(candidate["start"]) < minimum_start:
             return "expired"
         if revision != head(conn):
             return "stale"
@@ -217,7 +220,7 @@ def decide(store, configured_admin, actor, token, *, confirm):
         )
         affected = defaultdict(list)
         for change in changes:
-            if change["visible"]:
+            if change["visible"] and date.fromisoformat(change["day"]) >= datetime.now(SAMARA).date():
                 affected[change["group"]].append(change)
         for name, group_changes in affected.items():
             counts = Counter(c["kind"] for c in group_changes)

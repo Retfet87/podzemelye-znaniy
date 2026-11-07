@@ -1,4 +1,5 @@
 """Конфигурация: чтение .env, TLS-контекст для MAX и настройки администратора."""
+import os
 import re
 import ssl
 from pathlib import Path
@@ -7,7 +8,14 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 
 
 def load_config(path=PROJECT_DIR / ".env"):
-    """Читает простые строки КЛЮЧ=значение из локального файла."""
+    """Читает локальный .env или разрешённые настройки Docker Compose."""
+    if os.environ.get("BOT_CONFIG_MODE") == "compose":
+        keys = (
+            "BOT_CONFIG_MODE", "POSTGRES_PASSWORD", "POSTGRES_DB", "POSTGRES_USER", "MAX_BOT_TOKEN", "MAX_SUPER_ADMIN_ID",
+            "MAX_CA_FILE", "SCHEDULE_NOTIFICATIONS_ENABLED", "HOMEWORK_NOTIFICATIONS_ENABLED",
+            "EVENT_NOTIFICATIONS_ENABLED",
+        )
+        return {key: os.environ[key] for key in keys if key in os.environ}
     if not path.exists():
         return {}
 
