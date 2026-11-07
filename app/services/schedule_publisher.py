@@ -170,6 +170,13 @@ def preview(store, owner, digest, names, lessons, start, end, anchor, *, scope,
                              start=start.isoformat(), end=end.isoformat(),
                              anchor=anchor.isoformat() if anchor else None,
                              lessons=[x for name in groups for x in by_group[name]])
+            existing = conn.execute(
+                """SELECT token FROM schedule_previews WHERE owner_id=%s AND base_head=%s
+                   AND candidate=%s AND status='pending' AND expires_at>clock_timestamp()
+                   ORDER BY expires_at DESC LIMIT 1""", (owner, revision, Jsonb(candidate)),
+            ).fetchone()
+            if existing:
+                return existing[0], changes, new_coverage, cancellations
             conn.execute(
                 """INSERT INTO schedule_previews (token, owner_id, base_head, candidate, changes)
                    VALUES (%s, %s, %s, %s, %s)""",

@@ -124,6 +124,9 @@ class UXDatabaseTests(unittest.TestCase):
         draft = HomeworkDraft(self.a, False, body='Не терять')
         homework.drafts.put(11,draft)
         router = build_router(Deps.create(client,self.store,90),homework=homework)
+        from app.services.form_drafts import save
+        with self.store.connect() as conn:
+            save(conn,11,router.handlers)
         router.dispatch(callback_update('nav:home', user_id=11))
         self.assertIn(11,homework.drafts)
         self.assertIn('Несохранённые',client.answer.call_args.kwargs['text'])
@@ -258,6 +261,9 @@ class UXDatabaseTests(unittest.TestCase):
         draft = Draft('event',title='Черновик',step=2)
         handler.drafts.put(90,draft)
         router = build_router(Deps.create(client,self.store,90),community=handler)
+        from app.services.form_drafts import save
+        with self.store.connect() as conn:
+            save(conn,90,router.handlers)
         router.dispatch(callback_update('community:d:' + draft.token + ':prev',user_id=90))
         self.assertEqual(draft.step,1)
         router = build_router(Deps.create(client,self.store,90))

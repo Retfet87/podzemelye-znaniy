@@ -30,6 +30,8 @@ class DemoDatabase(Database):
         super().__init__(dsn, pool_size=0, **kwargs)
 
     def connect(self):
+        if self._scope.get() is not None:
+            return super().connect()  # Outer unit of work already verified the demo marker.
         conn = super().connect()
         try:
             verify_demo(conn)

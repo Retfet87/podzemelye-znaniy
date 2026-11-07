@@ -9,6 +9,7 @@ FILE_TYPES = {
     ".jpg": ("image/jpeg", b"\xff\xd8\xff"),
     ".jpeg": ("image/jpeg", b"\xff\xd8\xff"),
     ".txt": ("text/plain", None),
+    ".ics": ("text/calendar", b"BEGIN:VCALENDAR\r\n"),
 }
 
 
@@ -18,7 +19,7 @@ def file_type(name):
         raise ValueError("Недопустимое имя файла.")
     suffix = PurePath(name).suffix.lower()
     if suffix not in FILE_TYPES:
-        raise ValueError("Можно прикрепить PDF, PNG, JPG или TXT.")
+        raise ValueError("Можно прикрепить PDF, PNG, JPG, TXT или ICS.")
     return FILE_TYPES[suffix]
 
 
@@ -33,6 +34,12 @@ def validate_data(name, data):
             text = data.decode("utf-8-sig")
             valid = bool(text) and all(c.isprintable() or c in "\t\r\n" for c in text)
         except UnicodeDecodeError:
+            valid = False
+    if PurePath(name).suffix.lower() == '.ics':
+        try:
+            text = data.decode('utf-8')
+            valid = valid and text.endswith('END:VCALENDAR\r\n') and '\x00' not in text
+        except UnicodeError:
             valid = False
     if not valid:
         raise ValueError("Содержимое файла не соответствует его расширению.")

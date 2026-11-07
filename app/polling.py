@@ -7,12 +7,14 @@ from app.max_api.client import MaxError
 logger = logging.getLogger(__name__)
 
 
-def run_polling(client, router, *, health=None):
+def run_polling(client, router, *, health=None, guard=None):
     marker = None
     retry_delay = 2
     connected = False
 
     while True:
+        if guard is not None:
+            guard()
         try:
             updates, next_marker = client.get_updates(marker)
         except MaxError as error:
@@ -29,6 +31,8 @@ def run_polling(client, router, *, health=None):
             retry_delay = min(retry_delay * 2, 30)
             continue
 
+        if guard is not None:
+            guard()
         if health is not None:
             health.max_success()
         if not connected or retry_delay > 2:
@@ -37,6 +41,8 @@ def run_polling(client, router, *, health=None):
         retry_delay = 2
 
         for update in updates:
+            if guard is not None:
+                guard()
             try:
                 router.dispatch(update)
             except MaxError as error:

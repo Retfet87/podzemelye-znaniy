@@ -114,10 +114,13 @@ class PublicationTests(unittest.TestCase):
     def test_concurrent_confirmation_stale_and_repeat_import(self):
         token, changes, _, _ = self.draft()
         other = self.draft()[0]
+        self.assertEqual(token, other)  # Repeated checks reuse the same pending preview.
+        stale = self.draft([lesson(room="ауд. 99"), self.rows[1]])[0]
         self.assertEqual({c["kind"] for c in changes}, {"changed"})
         with ThreadPoolExecutor(max_workers=2) as pool:
             self.assertEqual(list(pool.map(self.decision, [token, token])), ["applied", "applied"])
-        self.assertEqual(self.decision(other), "stale")
+        self.assertEqual(self.decision(other), "applied")
+        self.assertEqual(self.decision(stale), "stale")
         self.assertEqual(self.draft()[:2], (None, []))
         self.assertEqual(self.query("SELECT user_id, status FROM schedule_notifications"), [(101, "pending")])
         self.assertEqual(self.query("SELECT count(DISTINCT id) FROM schedule_changes"), [(2,)])
@@ -176,7 +179,7 @@ class PublicationTests(unittest.TestCase):
                          "(source_sha256, valid_from, valid_to, numerator_monday)")
             conn.execute("DELETE FROM schema_migrations WHERE version = %s",
                          ("003_schedule_updates.sql",))
-        self.assertEqual(migrate(self.store), ["003_schedule_updates.sql", "004_homework.sql", "005_community.sql", "006_ux.sql"])
+        self.assertEqual(migrate(self.store), ["003_schedule_updates.sql", "004_homework.sql", "005_community.sql", "006_ux.sql", "007_form_drafts.sql"])
         self.assertEqual(self.store.registered_group(101), "А-01")
         self.assertEqual(self.store.schedule(101, [self.day])[0][8], "ауд. 12")
         self.assertEqual(self.query("SELECT scope FROM schedule_imports"), [("base",)])

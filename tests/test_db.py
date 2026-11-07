@@ -31,6 +31,8 @@ class DatabaseConfigTests(unittest.TestCase):
 
 
 def remove_community_fixture(conn):
+    conn.execute("DROP TABLE IF EXISTS form_drafts")
+    conn.execute("DELETE FROM schema_migrations WHERE version = '007_form_drafts.sql'")
     conn.execute("DROP TABLE event_media, demo_records")
     conn.execute("ALTER TABLE events DROP COLUMN tags, DROP COLUMN report_body, DROP COLUMN report_link, DROP COLUMN report_published")
     conn.execute("ALTER TABLE users DROP CONSTRAINT users_group_institution, DROP COLUMN institution_code, DROP COLUMN welcome_seen")
@@ -112,7 +114,7 @@ class PostgreSQLTests(unittest.TestCase):
         conn.execute(sql.SQL("CREATE SCHEMA {}").format(schema))
         self.addCleanup(conn.execute, sql.SQL("DROP SCHEMA {} CASCADE").format(schema))
         self.store = LegacyFixtureStore(make_conninfo(dsn, options=f"-c search_path={schema_name}"))
-        self.assertEqual(migrate(self.store), ["001_registration.sql", "002_schedule.sql", "003_schedule_updates.sql", "004_homework.sql", "005_community.sql", "006_ux.sql"])
+        self.assertEqual(migrate(self.store), ["001_registration.sql", "002_schedule.sql", "003_schedule_updates.sql", "004_homework.sql", "005_community.sql", "006_ux.sql", "007_form_drafts.sql"])
         self.assertEqual(migrate(self.store), [])
         self.store.check_schema()
         self.store.add_groups(["А-01", "А-02"])
@@ -143,7 +145,7 @@ class PostgreSQLTests(unittest.TestCase):
         self.store.start(123)
         with self.store.connect() as conn:
             conn.execute("UPDATE users SET group_id = %s WHERE max_user_id = 123", (self.groups["А-01"],))
-        self.assertEqual(migrate(self.store), ["002_schedule.sql", "003_schedule_updates.sql", "004_homework.sql", "005_community.sql", "006_ux.sql"])
+        self.assertEqual(migrate(self.store), ["002_schedule.sql", "003_schedule_updates.sql", "004_homework.sql", "005_community.sql", "006_ux.sql", "007_form_drafts.sql"])
         self.assertEqual(self.store.start(123), ("А-01",))
 
     def test_import_is_idempotent_group_scoped_and_atomic(self):

@@ -1,6 +1,7 @@
 """Подключение к локальной PostgreSQL."""
 from pathlib import Path
 from contextlib import contextmanager
+from contextvars import ContextVar
 import logging
 
 import psycopg
@@ -53,6 +54,7 @@ class Database:
         if type(pool_size) is not int or not 0 <= pool_size <= 16:
             raise ValueError("Размер пула должен быть от 0 до 16.")
         self.dsn = dsn
+        self._scope = ContextVar('database_unit_of_work', default=None)
         self._pool = None
         self._reset_callback = self._reset
         host = conninfo_to_dict(dsn)["host"]
@@ -73,9 +75,31 @@ class Database:
         return cls(local_dsn(config), pool_size=int(value))
 
     def connect(self):
+        if self._scope.get() is not None:
+            return self._borrowed_connection()
         if self._pool is not None:
             return self._pooled_connection()
         return psycopg.connect(self.dsn, connect_timeout=5, **self._options)
+
+    @contextmanager
+    def _borrowed_connection(self):
+        # A savepoint keeps caught repository failures from poisoning the outer
+        # draft transaction. Its success never commits that outer transaction.
+        conn = self._scope.get()
+        with conn.transaction():
+            yield conn
+
+    @contextmanager
+    def unit_of_work(self):
+        """Opt-in atomic form publication + draft consumption in one connection."""
+        if self._scope.get() is not None:
+            raise RuntimeError('Nested unit of work is unsupported')
+        with self.connect() as conn:
+            token = self._scope.set(conn)
+            try:
+                yield conn
+            finally:
+                self._scope.reset(token)
 
     @contextmanager
     def _pooled_connection(self):
@@ -119,6 +143,10 @@ class Database:
     def close(self):
         if self._pool is not None:
             self._pool.close(timeout=5)
+
+    def polling_lease(self, token):
+        from app.db.polling_lease import PollingLease
+        return PollingLease(self.dsn, token)
 
     def __enter__(self):
         return self

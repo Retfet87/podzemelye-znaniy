@@ -10,6 +10,7 @@ from app.db import Database, local_dsn, migrate
 from app.repositories.users import UserRepository
 from app.services.schedule_parser import parse_xls, print_summary
 from app.services.schedule_publisher import LABELS, describe, preview
+from app.services.official_schedule import discover, download
 
 
 def main():
@@ -21,21 +22,34 @@ def main():
     inspect = commands.add_parser("inspect-schedule", help="разобрать XLS без подключения к БД")
     inspect.add_argument("file")
     inspect.add_argument("--gray-other-building", action="store_true")
+    official = commands.add_parser("check-official-schedule", help="список официальных XLS или проверка выбранного файла без публикации")
+    official.add_argument('--file-url', help='точный адрес XLS со страницы АКВТ; без него только список')
     schedule = commands.add_parser("import-schedule", help="предпросмотр XLS без публикации")
     schedule.add_argument("file")
-    schedule.add_argument("--gray-other-building", action="store_true")
-    schedule.add_argument("--scope", choices=("base", "date"), required=True)
-    schedule.add_argument("--from", dest="start", type=date.fromisoformat, required=True)
-    schedule.add_argument("--to", dest="end", type=date.fromisoformat)
-    schedule.add_argument("--numerator-monday", type=date.fromisoformat)
-    schedule.add_argument("--group", action="append", default=[])
-    schedule.add_argument("--expect-cancellations", type=int, default=0)
-    schedule.add_argument("--expect-groups", type=int)
-    schedule.add_argument("--expect-lessons", type=int)
-    schedule.add_argument("--stage", action="store_true", help="создать черновик для подтверждения в MAX")
+    for command in (schedule, official):
+        command.add_argument("--gray-other-building", action="store_true")
+        command.add_argument("--scope", choices=("base", "date"), required=command is schedule)
+        command.add_argument("--from", dest="start", type=date.fromisoformat, required=command is schedule)
+        command.add_argument("--to", dest="end", type=date.fromisoformat)
+        command.add_argument("--numerator-monday", type=date.fromisoformat)
+        command.add_argument("--group", action="append", default=[])
+        command.add_argument("--expect-cancellations", type=int, default=0)
+        command.add_argument("--expect-groups", type=int)
+        command.add_argument("--expect-lessons", type=int)
+        command.add_argument("--stage", action="store_true", help="создать черновик для подтверждения в MAX")
     commands.add_parser("notification-status", help="сводка очереди без данных получателей")
     args = parser.parse_args()
     try:
+        if args.command == 'check-official-schedule':
+            available = discover()
+            if args.file_url is None:
+                print('Официальные XLS (выбери свой учебный год и набор специальностей):')
+                print('\n'.join(available))
+                return 0
+            if args.scope is None or args.start is None:
+                raise ValueError('Для проверки выбранного XLS явно укажи --scope и --from.')
+            digest, names, lessons = download(args.file_url, available, gray_other_building=args.gray_other_building)
+            print('SHA256: ' + digest)
         if args.command in ("inspect-schedule", "import-schedule"):
             digest, names, lessons = parse_xls(args.file, gray_other_building=args.gray_other_building)
             if args.command == "inspect-schedule":
@@ -48,7 +62,7 @@ def main():
             print("Применены: " + ", ".join(versions) if versions else "Миграции уже применены.")
             return 0
         store.check_schema()
-        if args.command == "import-schedule":
+        if args.command in ("import-schedule", 'check-official-schedule'):
             if args.scope == "base" and args.end is None:
                 raise ValueError("Для базового расписания явно укажи --to.")
             if args.stage and args.scope == "base" and (args.expect_groups, args.expect_lessons) != (

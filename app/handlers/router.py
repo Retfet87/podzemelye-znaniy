@@ -6,6 +6,8 @@ from app.max_api.client import MaxError
 from app.handlers.menus import HOME
 from app.handlers.registration import WELCOME, institution_keyboard
 from app.max_api.keyboards import inline_keyboard, callback_button
+from app.db.database import Database
+from app.services import form_drafts
 import psycopg
 
 
@@ -19,7 +21,20 @@ class Router:
 
     def dispatch(self, update):
         try:
-            self._dispatch(update)
+            ctx = Context.parse(self.deps, update)
+            # Mock dependencies retain the lightweight unit-test path. Every real
+            # database router persists private forms, including demo's separate DB.
+            if isinstance(self.deps.db, Database) and ctx.private and ctx.actor:
+                with self.deps.db.unit_of_work() as conn:
+                    locked = conn.execute('SELECT pg_try_advisory_xact_lock(%s)', (-ctx.actor,)).fetchone()[0]
+                    if not locked:
+                        self._error_reply(update, 'Предыдущее действие ещё выполняется. Повтори через несколько секунд.')
+                        return
+                    form_drafts.load(conn, ctx.actor, self.handlers)
+                    self._dispatch(update)
+                    form_drafts.save(conn, ctx.actor, self.handlers)
+            else:
+                self._dispatch(update)
         except MaxError:
             # Polling owns retry/fatal authentication handling.
             raise

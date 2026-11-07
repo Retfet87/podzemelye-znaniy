@@ -88,7 +88,7 @@ class CommunityTests(unittest.TestCase):
     def test_upgrade_preserves_registration_and_previous_schema(self):
         with self.store.connect() as conn:
             remove_community_fixture(conn)
-        self.assertEqual(migrate(self.store), ["005_community.sql", "006_ux.sql"])
+        self.assertEqual(migrate(self.store), ["005_community.sql", "006_ux.sql", "007_form_drafts.sql"])
         self.assertEqual(migrate(self.store), [])
         self.assertEqual(self.store.registered_group(11), "А-01")
 

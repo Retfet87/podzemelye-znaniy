@@ -225,7 +225,7 @@ class PoolTests(unittest.TestCase):
         self.control.execute(sql.SQL('CREATE SCHEMA {}').format(sql.Identifier(extra)))
         self.addCleanup(self.control.execute,sql.SQL('DROP SCHEMA {} CASCADE').format(sql.Identifier(extra)))
         db=self.enterContext(Database(make_conninfo(self.dsn,options=f'-c search_path={extra},public'),pool_size=1))
-        self.assertEqual(len(migrate(db)),6)
+        self.assertEqual(len(migrate(db)),7)
         self.assertEqual(migrate(db),[])
         db.check_schema()
         monday=datetime.now(SAMARA).date()

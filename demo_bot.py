@@ -24,7 +24,13 @@ def main():
     client = DemoClient(token, context, policy)
     # No administrator publication commands and no notification thread.
     router = DemoRouter(build_router(Deps.create(client, db)), policy)
-    run_polling(client, router)
+    lease = db.polling_lease(token)
+    try:
+        lease.open()
+        run_polling(client, router, guard=lease.check)
+    finally:
+        lease.close()
+        db.close()
 
 
 if __name__ == '__main__':

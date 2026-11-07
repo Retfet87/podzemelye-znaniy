@@ -13,6 +13,7 @@ HOME = inline_keyboard([
 _PERIODS = [
     [callback_button("Сегодня", "schedule:today"), callback_button("Завтра", "schedule:tomorrow")],
     [callback_button("Неделя", "schedule:week")],
+    [callback_button("📆 В календарь", "calendar:week")],
 ]
 
 # Сам экран «Расписание»: «Назад» здесь вела бы на этот же экран, поэтому её нет.

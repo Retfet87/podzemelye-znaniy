@@ -12,6 +12,7 @@ from app.handlers.registration import RegistrationHandler
 from app.handlers.router import Router
 from app.handlers.schedule import ScheduleHandler
 from app.handlers.questions import QuestionsHandler
+from app.handlers.calendar_export import CalendarHandler
 
 
 def build_router(deps, *, homework=None, community=None):
@@ -20,6 +21,7 @@ def build_router(deps, *, homework=None, community=None):
         community or CommunityHandler(),
         homework or HomeworkHandler(),
         RegistrationHandler(),
+        CalendarHandler(),
         ScheduleHandler(),
         QuestionsHandler(),
     ])

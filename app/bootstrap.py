@@ -69,7 +69,10 @@ def main():
     stop = Event()
     worker = None
     monitor = None
+    lease = None
     try:
+        lease = db.polling_lease(token)
+        lease.open()
         logger.info("Запускаю локальный опрос MAX. Остановка — Ctrl+C.")
         client = MaxClient(token, context)
         router = build_router(Deps.create(client, db, administrator, health=health))
@@ -86,9 +89,12 @@ def main():
                             name="notifications", daemon=True)
             worker.start()
         if health is None:
-            run_polling(client, router)
+            run_polling(client, router, guard=lease.check)
         else:
-            run_polling(client, router, health=health)
+            run_polling(client, router, health=health, guard=lease.check)
+    except ValueError as error:
+        logger.error('%s', error)
+        return 1
     except MaxError as error:
         if health is not None:
             health.critical("max_authentication" if error.status == 401 else "max_api_failure")
@@ -107,6 +113,8 @@ def main():
             worker.join(timeout=20)
         if monitor is not None and monitor.is_alive():
             monitor.join(timeout=6)
+        if lease is not None:
+            lease.close()
         db.close()
         if health is not None:
             health.stopped()

@@ -81,6 +81,10 @@ class CommunityHandler(Handler):
         return self.handle(ctx.client, ctx.db, ctx.actor, ctx.admin, body=ctx.body)
 
     def on_callback(self, ctx):
+        if ctx.payload.startswith("community:calendar_event:"):
+            from dataclasses import replace
+            from app.handlers.calendar_export import CalendarHandler
+            return CalendarHandler().on_callback(replace(ctx, payload=ctx.payload.replace("community:calendar_event:", "calendar:event:", 1)))
         if not ctx.payload.startswith("community:"):
             return False
         if not ctx.private:
@@ -202,6 +206,8 @@ class CommunityHandler(Handler):
                 self.prompt(reply, draft)
                 return
             buttons = []
+            if state == "published":
+                buttons.append(("📆 В календарь", f"calendar_event:{event}"))
             if future and state == "published":
                 buttons.append(("Не пойду" if joined else "Пойду", f"{'leave' if joined else 'join'}:{event}"))
             if db.super and future and state != "cancelled":

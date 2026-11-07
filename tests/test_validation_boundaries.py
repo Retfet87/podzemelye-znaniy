@@ -246,7 +246,7 @@ class SchemaCopyUpgradeTests(unittest.TestCase):
             conn.execute("INSERT INTO homework_files VALUES (%s,1,'keep.txt',%s)",(task,b'keep-old-homework'))
             material=conn.execute("INSERT INTO useful_materials(category,title,body,link) VALUES ('study','Keep title','Keep body','') RETURNING id").fetchone()[0]
             conn.execute("INSERT INTO useful_files VALUES (%s,1,'keep.txt',%s)",(material,b'keep-old-material'))
-        self.assertEqual(migrate(db),['006_ux.sql'])
+        self.assertEqual(migrate(db),['006_ux.sql','007_form_drafts.sql'])
         self.assertEqual(migrate(db),[])
         db.check_schema()
         with db.connect() as conn:
