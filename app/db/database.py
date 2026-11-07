@@ -3,6 +3,15 @@ from pathlib import Path
 
 import psycopg
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
+from psycopg.pq import TransactionStatus
+
+try:
+    from psycopg_pool import ConnectionPool
+except ImportError:
+    ConnectionPool = None  # Direct connections remain usable before optional rollout.
+
+
+_pool_check = ConnectionPool.check_connection if ConnectionPool else None
 
 MIGRATIONS = Path(__file__).resolve().parent.parent.parent / "migrations"
 
@@ -35,13 +44,58 @@ def local_dsn(config, key="DATABASE_URL"):
 class Database:
     """Фабрика соединений. Репозитории получают её и сами открывают транзакции."""
 
-    def __init__(self, dsn):
+    def __init__(self, dsn, *, pool_size=0, pool_timeout=5):
+        if type(pool_size) is not int or not 0 <= pool_size <= 16:
+            raise ValueError("Размер пула должен быть от 0 до 16.")
         self.dsn = dsn
+        self._pool = None
+        host = conninfo_to_dict(dsn)["host"]
+        self._options = {"hostaddr": host} if host in ("127.0.0.1", "::1") else {}
+        if pool_size:
+            if ConnectionPool is None:
+                raise ValueError("Для пула установи зависимости проекта (psycopg_pool).")
+            self._pool = ConnectionPool(
+                dsn, min_size=0, max_size=pool_size, max_waiting=32, timeout=pool_timeout,
+                open=False, name="bot-database", check=_pool_check,
+                reset=self._reset, kwargs={"connect_timeout": 5, "prepare_threshold": None, **self._options})
+
+    @classmethod
+    def from_config(cls, config):
+        value = config.get('DB_POOL_MAX_SIZE', '0')
+        if not isinstance(value, str) or not value.isascii() or not value.isdecimal() or len(value) > 2:
+            raise ValueError('DB_POOL_MAX_SIZE должен быть целым числом от 0 до 16.')
+        return cls(local_dsn(config), pool_size=int(value))
 
     def connect(self):
-        host = conninfo_to_dict(self.dsn)["host"]
-        options = {"hostaddr": host} if host in ("127.0.0.1", "::1") else {}
-        return psycopg.connect(self.dsn, connect_timeout=5, **options)
+        if self._pool is not None:
+            self._pool.open()
+            return self._pool.connection()
+        return psycopg.connect(self.dsn, connect_timeout=5, **self._options)
+
+    @staticmethod
+    def _reset(conn):
+        # Pool commits/rolls back before reset. Session locks survive commit;
+        # DISCARD ALL must finish before this connection is available again.
+        if conn.info.transaction_status != TransactionStatus.IDLE:
+            conn.rollback()
+        autocommit = conn.autocommit
+        try:
+            conn.autocommit = True
+            conn.execute('DISCARD ALL', prepare=False)
+        finally:
+            conn.autocommit = autocommit
+        # Pooled connections disable auto-prepare: DISCARD ALL also removes
+        # server prepared statements, so retaining a client cache is unsafe.
+
+    def close(self):
+        if self._pool is not None:
+            self._pool.close(timeout=5)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
 
     def reject_demo(self):
         """Normal bot/web entrypoints must never bypass the dedicated demo gates."""

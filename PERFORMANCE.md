@@ -38,3 +38,12 @@
 Оправдан небольшой ограниченный opt-in пул на уровне Database с сохранением with db.connect(). Нужны тесты commit/rollback, повреждённых соединений, session locks и закрытия. До них пул не считается готовым. Никаких пользовательских кэшей, новых workers или изменения polling concurrency не вводится.
 
 Полные исходные числа: [validation/performance-before.json](validation/performance-before.json). Воспроизведение: PERFORMANCE_DATABASE_URL=... python -m scripts.performance --output result.json; требуется отдельная заранее подготовленная *_test база с маркером. Скрипт владеет только собственной случайной схемой и удаляет её после завершения.
+
+
+## Реализация пула
+
+`Database(..., pool_size=N)` сохраняет `with db.connect()` и закрывается через `close()`/контекст Database. `DB_POOL_MAX_SIZE=0` по умолчанию оставляет прежний прямой режим; явное значение 1–16 включает ограниченный пул обычного бота после будущего согласованного перезапуска. Измеряется N=4; это размер эксперимента, не универсальная рекомендация. Очередь ожидания ограничена 32, ожидание — 5 с. CLI, mini-app и demo автоматически на пул не переведены; DemoDatabase явно запрещает его, сохраняя per-connection marker checks.
+
+Pool connection context завершает транзакцию, затем reset выполняет DISCARD ALL вне транзакции до повторной доступности сессии. Это снимает все session advisory locks, сбрасывает настройки/роль, temp/протокол LISTEN и prepared statements. Автоматическая подготовка отключена только на pooled connections, чтобы DISCARD ALL не рассинхронизировал кэш psycopg. Ошибка reset/сломанная сессия приводит к удалению соединения, а не выдаче следующему пользователю. Проверка соединения перед выдачей включена. Сессионные блокировки уведомлений по-прежнему удерживаются через commit во время отправки.
+
+Основание: [psycopg pool lifecycle](https://www.psycopg.org/psycopg3/docs/advanced/pool.html), [PostgreSQL 16 DISCARD](https://www.postgresql.org/docs/16/sql-discard.html). Тесты проверяют commit, rollback, SQL error, timeout, закрытую сессию, провал reset, повторные locks через commit, temp/search_path, два worker pool и shutdown. Новая миграция не требуется; работающая конфигурация не изменяется.

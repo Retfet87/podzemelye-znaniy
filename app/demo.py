@@ -24,6 +24,11 @@ def verify_demo(conn):
 
 
 class DemoDatabase(Database):
+    def __init__(self, dsn, *, pool_size=0, **kwargs):
+        if pool_size:
+            raise ValueError('DemoDatabase использует только прямые проверяемые соединения.')
+        super().__init__(dsn, pool_size=0, **kwargs)
+
     def connect(self):
         conn = super().connect()
         try:

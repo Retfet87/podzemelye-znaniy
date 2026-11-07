@@ -5,7 +5,7 @@ from threading import Event, Thread
 import psycopg
 
 from app.config import admin_id, load_config, max_tls_context
-from app.db import Database, local_dsn
+from app.db import Database
 from app.handlers import Deps, build_router
 from app.max_api.client import MaxClient, MaxError
 from app.notifications.worker import work_notifications
@@ -36,15 +36,20 @@ def main():
         logger.error("Не удалось загрузить доверенные TLS-сертификаты. Проверь MAX_CA_FILE.")
         return 1
 
+    db = None
     try:
         administrator = admin_id(config)
-        db = Database(local_dsn(config))
+        db = Database.from_config(config)
         db.check_schema()
         db.reject_demo()
     except ValueError as error:
+        if db is not None:
+            db.close()
         logger.error("%s", error)
         return 1
     except psycopg.Error:
+        if db is not None:
+            db.close()
         logger.error("PostgreSQL недоступен или схема не готова. Проверь DATABASE_URL и запусти manage.py migrate.")
         return 1
 
@@ -72,4 +77,5 @@ def main():
         stop.set()
         if worker:
             worker.join(timeout=20)
+        db.close()
     return 0
