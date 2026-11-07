@@ -25,9 +25,7 @@ def main():
     db=demo_database() if mode=='demo' else Database(local_dsn({'WEB_DATABASE_URL':os.environ.get('WEB_DATABASE_URL')},'WEB_DATABASE_URL'))
     db.check_schema()
     if mode=='real':
-        with db.connect() as conn:
-            if conn.execute("SELECT to_regclass('demo_environment')").fetchone()[0]:
-                raise ValueError('Demo-БД запрещена в real web-режиме.')
+        db.reject_demo()
     # Loopback only; HTTPS reverse proxy is a separate deployment step.
     with make_server('127.0.0.1',8080,MiniApp(ReadViews(db),token,demo_policy=policy),handler_class=QuietHandler) as server:
         server.serve_forever()

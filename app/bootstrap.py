@@ -40,6 +40,7 @@ def main():
         administrator = admin_id(config)
         db = Database(local_dsn(config))
         db.check_schema()
+        db.reject_demo()
     except ValueError as error:
         logger.error("%s", error)
         return 1

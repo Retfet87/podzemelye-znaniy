@@ -89,6 +89,20 @@ class UXDatabaseTests(unittest.TestCase):
     setUp = fixtures.CommunityTests.setUp
     query = fixtures.CommunityTests.query
 
+    def test_ordinary_bot_rejects_demo_database_before_creating_max_client(self):
+        from app.bootstrap import main
+        self.query("CREATE TABLE demo_environment (environment text PRIMARY KEY)")
+        self.query("INSERT INTO demo_environment VALUES ('podzemelye-demo-v1')")
+        with patch('app.bootstrap.load_config',return_value={'MAX_BOT_TOKEN':'synthetic-only'}), \
+                patch('app.bootstrap.max_tls_context',return_value=None), \
+                patch('app.bootstrap.Database',return_value=self.store), \
+                patch('app.bootstrap.local_dsn',return_value=self.store.dsn), \
+                patch('app.bootstrap.MaxClient') as client, \
+                patch('app.bootstrap.run_polling') as poll, self.assertLogs('app.bootstrap'):
+            self.assertEqual(main(),1)
+        client.assert_not_called()
+        poll.assert_not_called()
+
     def test_migration_backfills_old_registration(self):
         with self.store.connect() as conn:
             remove_community_fixture(conn)

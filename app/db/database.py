@@ -43,6 +43,12 @@ class Database:
         options = {"hostaddr": host} if host in ("127.0.0.1", "::1") else {}
         return psycopg.connect(self.dsn, connect_timeout=5, **options)
 
+    def reject_demo(self):
+        """Normal bot/web entrypoints must never bypass the dedicated demo gates."""
+        with self.connect() as conn:
+            if conn.execute("SELECT to_regclass('demo_environment')").fetchone()[0]:
+                raise ValueError('Demo-БД разрешена только через отдельный защищённый demo-вход.')
+
     def check_schema(self):
         with self.connect() as conn:
             applied = conn.execute("SELECT version FROM schema_migrations").fetchall()

@@ -43,3 +43,10 @@
 - Осталось по P3: pool с явным освобождением locks, черновики, health/restart integration, scheduled backup/restore и load. P4 ICS/XLS не реализованы. Их реализация/приёмка остаётся в ТЗ; изменения схемы и pool без PostgreSQL-проверок не вносились.
 - Перед публикацией обязательны disposable Docker/PostgreSQL suites, проверка схемы/прав/очистки seed, DB-scope web и сроков, визуальный и реальный MAX-прогон. GitHub remote/PR пока требуют штатной авторизации; push/merge/deploy не выполнялись. Проверенное в коде не приравнивается к работающему в MAX.
 - Commit с сообщением `fix: keep polling alive after unexpected handler failures`, SHA в отчёте чата.
+
+## C6 — повторный аудит и первый полный PostgreSQL-прогон
+
+- Исходная ветка review/team, HEAD d8dfd4f, дерево чистое. Docker отсутствует, но найдены ранее установленные PostgreSQL 16.9; поднят новый временный кластер с отдельным data_directory и портом, без установки ПО/доступа к рабочей БД.
+- С публичным XLS выполнены 145 из 146 исходных тестов, 1 пропущен (нет ffmpeg), 0 провалены.
+- Исправлен подтверждённый обход demo-защиты через обычный bootstrap при ошибочной конфигурации БД: отказ до MAX-клиента; real web использует общую проверку. После регрессии: 146 passed / 1 skipped / 0 failed (147 total).
+- Добавлен безопасный runner scripts.test_isolated с явным disposable DSN и маркером. Точные границы и последующие результаты — VALIDATION.md. Реальный MAX/Docker пока не проверены.
