@@ -12,3 +12,6 @@ backups/
 *.tar.gz
 bolshoe-raspisanie*.xls
 !.env.docker.example
+
+# Demo switch is operational state, never enabled by checkout
+demo-control/

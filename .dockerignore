@@ -19,3 +19,13 @@
 !assets/
 !assets/welcome.png
 !seed_demo.py
+
+!demo_bot.py
+!seed_useful.py
+!seed_akvt.py
+!scripts/demo_manage.py
+!fixtures/
+!fixtures/demo/
+!fixtures/demo/*.json
+
+!scripts/test_offline.py

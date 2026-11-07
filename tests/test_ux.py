@@ -80,7 +80,7 @@ class UXInputTests(unittest.TestCase):
             self.assertEqual(validate_media('video','clip.mp4',path.read_bytes()), 'video/mp4')
 
     def test_demo_guard_never_reads_working_config(self):
-        with patch.dict(os.environ, {'TEST_DATABASE_URL':'postgresql://u:private@127.0.0.1/production'}, clear=True), self.assertRaises(ValueError):
+        with patch.dict(os.environ, {'DEMO_DATABASE_URL':'postgresql://demo_app:private@127.0.0.1/production'}, clear=True), self.assertRaises(ValueError):
             demo_database()
 
 
@@ -147,10 +147,12 @@ class UXDatabaseTests(unittest.TestCase):
         monday = datetime.now(SAMARA).date()
         monday -= timedelta(days=monday.weekday())
         self.store.seed_legacy('fixture',['А-01'],[Lesson('А-01',0,1,'all','Предмет','','','',())],monday,monday+timedelta(days=13),monday)
+        self.query("CREATE TABLE demo_environment (environment text PRIMARY KEY)")
+        self.query("INSERT INTO demo_environment VALUES ('podzemelye-demo-v1')")
         self.assertTrue(seed(self.store))
         self.assertFalse(seed(self.store))
-        self.assertEqual(self.query('SELECT count(*) FROM useful_materials'),[(5,)])
-        self.assertEqual(self.query('SELECT count(*) FROM demo_records'),[(12,)])
+        self.assertEqual(self.query('SELECT count(*) FROM useful_materials'),[(32,)])
+        self.assertEqual(self.query('SELECT count(*) FROM demo_records'),[(39,)])
         for table in ('event_notifications','homework_notifications','schedule_notifications'):
             self.assertEqual(self.query('SELECT count(*) FROM ' + table),[(0,)])
         with self.store.connect() as conn:
@@ -159,6 +161,35 @@ class UXDatabaseTests(unittest.TestCase):
         self.assertEqual(self.query('SELECT count(*) FROM users'),[(4,)])
         self.assertEqual(self.query('SELECT count(*) FROM schedule_imports'),[(1,)])
         self.assertEqual(self.query('SELECT count(*) FROM demo_records'),[(0,)])
+
+    def test_demo_useful_cleanup_preserves_unmarked_title_collision(self):
+        from app.demo_seed import seed_useful, clean_useful
+        from app.demo_seed import FIXTURES
+        import json
+        self.query("CREATE TABLE demo_environment (environment text PRIMARY KEY)")
+        self.query("INSERT INTO demo_environment VALUES ('podzemelye-demo-v1')")
+        title = json.loads(FIXTURES.read_text())[0]['title']
+        foreign = self.query("INSERT INTO useful_materials (category,title,body,link) VALUES ('curators',%s,'Unmarked record','') RETURNING id", (title,))[0][0]
+        with self.store.connect() as conn:
+            self.assertEqual(seed_useful(conn), 32)
+        with self.store.connect() as conn:
+            self.assertEqual(seed_useful(conn), 0)
+            clean_useful(conn)
+            clean_useful(conn)
+        self.assertEqual(self.query('SELECT id FROM useful_materials'), [(foreign,)])
+        self.assertEqual(self.query('SELECT count(*) FROM demo_records'), [(0,)])
+
+    def test_demo_useful_concurrent_seeds_are_serialized(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from app.demo_seed import seed_useful
+        self.query("CREATE TABLE demo_environment (environment text PRIMARY KEY)")
+        self.query("INSERT INTO demo_environment VALUES ('podzemelye-demo-v1')")
+        def apply(_):
+            with self.store.connect() as conn:
+                return seed_useful(conn)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            self.assertEqual(sorted(executor.map(apply, range(2))), [0, 32])
+        self.assertEqual(self.query('SELECT count(*) FROM demo_records'), [(32,)])
 
     def test_registration_illustration_only_once_and_private_callbacks(self):
         class Client(OfflineMAX):
@@ -199,12 +230,14 @@ class UXDatabaseTests(unittest.TestCase):
     def test_demo_real_xls_cli_repeat_cleanup(self):
         # Only this randomly isolated test schema; the production DSN is never used.
         self.query('DELETE FROM users')
+        self.query("CREATE TABLE demo_environment (environment text PRIMARY KEY)")
+        self.query("INSERT INTO demo_environment VALUES ('podzemelye-demo-v1')")
         with patch('seed_demo.demo_database', return_value=self.store), patch('sys.argv',
                 ['seed_demo.py','--demo','--xls',os.environ['AKVT_TEST_XLS']]):
             demo_main()
             demo_main()
         self.assertEqual(self.query('SELECT count(*) FROM schedule_lessons'),[(672,)])
-        self.assertEqual(self.query('SELECT count(*) FROM demo_records'),[(12,)])
+        self.assertEqual(self.query('SELECT count(*) FROM demo_records'),[(39,)])
         self.assertEqual(self.query('SELECT count(*) FROM schedule_notifications'),[(0,)])
         with patch('seed_demo.demo_database', return_value=self.store), patch('sys.argv',['seed_demo.py','--demo','--clean']):
             demo_main()

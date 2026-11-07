@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 def deliver_one(store, send, max_error, *, homework=True, schedule=True, events=False):
     with store.connect() as conn:
+        # Demo data must never enter delivery, even with misconfigured flags.
+        if conn.execute("SELECT to_regclass('demo_environment')").fetchone()[0]:
+            return False
         if not conn.execute("SELECT pg_try_advisory_lock(%s)", (NOTIFICATION_WORKER_LOCK,)).fetchone()[0]:
             return False
         if homework:

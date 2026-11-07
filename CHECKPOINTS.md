@@ -7,3 +7,12 @@
 - Базовый прогон до изменений: 98 тестов, 49 пропусков. После: 106 тестов, 49 пропусков (57 выполнены успешно). Зависимости установлены во временном окружении, рабочий `.env` исключён из чтения. `git diff --check` чист.
 - Пропуски: PostgreSQL, реальный XLS, ffmpeg/ffprobe. Docker отсутствует; реальная проверка MAX не выполнялась. Возврат настроек уведомлений к источнику перехода остаётся отдельной UX-задачей.
 - SHA этой контрольной точки: commit с сообщением `fix: consolidate kruto navigation without unrelated history merge`; конкретный SHA приведён в отчёте чата. Только локальная review/team, без push.
+
+## C2 — отдельное demo-окружение
+
+- C1 зафиксирован коммитом `0fbf5b5`.
+- Сохранены все 32 карточки kruto в помеченных fixtures; старый опасный seed заменён безопасной обёрткой, seed_akvt больше не читает production config. Demo seed принимает только DEMO_DATABASE_URL и проверяет маркер среды до записи.
+- Добавлены независимые Compose/БД/том/роль, отдельный gated entrypoint без notification worker, allowlist и hot switch. Общий worker блокирует доставку из demo-БД. Адресация и callback ограничены текущим авторизованным demo-запросом; ответы и файлы помечаются.
+- Проверки: 122 теста, 51 пропуск, 71 выполнен успешно. Новые проверки покрывают запрет fallback/DSN overrides, marker failures, account/chat/recipient/callback isolation, выключатель и запрет уведомлений. Проверен синтаксис shell/YAML и diff.
+- Добавлены DB-тесты конкурентного seed и сохранения неотмеченной карточки с совпадающим названием; они НЕ выполнены (нет PostgreSQL/Docker). Docker image/build, SQL provisioning/roles, DB seed/cleanup и реальные MAX-запуски остаются обязательным барьером перед показом. Mini-app и live-переключение не выполнялись.
+- Это реализация для review, не подтверждение готовности к развёртыванию. Никаких миграций, seed или poller в этой сессии не запускалось. Commit с сообщением `feat: isolate judge demo data and gate all demo output`; SHA в отчёте чата, без push.

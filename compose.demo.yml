@@ -1,0 +1,62 @@
+# Independent demo environment. Never combine with docker-compose.yml.
+services:
+  demo-postgres:
+    image: postgres:16-bookworm
+    environment:
+      POSTGRES_DB: podzemelye_demo
+      POSTGRES_USER: demo_owner
+      POSTGRES_PASSWORD: ${DEMO_OWNER_PASSWORD:?Set separate DEMO_OWNER_PASSWORD}
+      DEMO_DB_PASSWORD: ${DEMO_DB_PASSWORD:?Set separate DEMO_DB_PASSWORD}
+    volumes:
+      - demo-pgdata:/var/lib/postgresql/data
+      - ./scripts/demo-init.sh:/docker-entrypoint-initdb.d/demo-init.sh:ro
+    networks: [demo]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U demo_owner -d podzemelye_demo']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  demo-setup:
+    build: .
+    command: [python, -m, scripts.demo_manage]
+    environment: &demo_database
+      DEMO_DATABASE_URL: ${DEMO_DATABASE_URL:?Set dedicated demo_app DSN using demo-postgres}
+    networks: [demo]
+    depends_on:
+      demo-postgres:
+        condition: service_healthy
+
+  demo-seed:
+    build: .
+    profiles: [tools]
+    command: [python, seed_demo.py, --demo]
+    environment: *demo_database
+    networks: [demo]
+    depends_on:
+      demo-setup:
+        condition: service_completed_successfully
+
+  demo-bot:
+    build: .
+    profiles: [demo-live]
+    command: [python, demo_bot.py]
+    environment:
+      <<: *demo_database
+      DEMO_ENABLED: ${DEMO_ENABLED:-0}
+      DEMO_ALLOWED_USER_IDS: ${DEMO_ALLOWED_USER_IDS:-}
+      DEMO_POLLING_ALLOWED: ${DEMO_POLLING_ALLOWED:-0}
+      DEMO_BOT_TOKEN: ${DEMO_BOT_TOKEN:-}
+    volumes:
+      - ./demo-control:/run/demo:ro
+    networks: [demo, demo-egress]
+    depends_on:
+      demo-setup:
+        condition: service_completed_successfully
+
+volumes:
+  demo-pgdata:
+networks:
+  demo:
+    internal: true
+  demo-egress:
