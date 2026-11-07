@@ -48,3 +48,8 @@ Docker CLI/Engine, psql, pg_dump и pg_restore не найдены. Систем
 - Проверено в настоящем MAX: **ничего**. Polling/боевой токен, сообщения студентам, рабочие БД и переключение live не использовались. HTTPS-подключение/настройки MAX и визуальный прогон ещё нужны.
 - P3 pool/locks, health/restart supervisor, устойчивые черновики, backup schedule/rotation и нагрузка отложены: задача сосредоточена на проверках, а Docker/штатный logical restore ещё не доказаны. P4 ICS/XLS и реестр не менялись.
 - Локальные review-коммиты этой итерации: 888b738 (startup guard), 7bf82e7 (DB/HTTP boundaries); SHA C8 сообщается после фиксации. Push, force push, PR merge и deploy не выполнялись.
+
+
+## Последующая задача производительности (C9)
+
+Контекст этой страницы сохранён: C6–C8 не выполнялись заново как отдельная приёмка backup/MAX. После opt-in pooling и приватного health проведена необходимая регрессия на НОВОЙ отдельной PostgreSQL: **184 total / 183 passed / 1 skipped / 0 failed**, 10.330 с. Единственный пропуск — настоящий MP4 без ffmpeg. Включены 156 исходных проверок, 16 pool и 12 health/lifecycle. Demo и HTTP mini-app авторизация/границы, миграции, уведомления и восстановление соединений после ошибок прошли. Новый физический restore/Docker/MAX не заявляются. Измерения, источники, воспроизведение и ограничения — [PERFORMANCE.md](PERFORMANCE.md); сводка — [validation/performance-tests.json](validation/performance-tests.json). Рабочий процесс/конфигурация/БД и старые backup не менялись. Push/merge/deploy не выполнялись.

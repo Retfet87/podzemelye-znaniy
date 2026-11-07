@@ -108,6 +108,8 @@ def checked_dsn(value):
             raise ValueError('Нет bootstrap-owned validation-маркера.')
         if conn.execute('SELECT environment FROM public.validation_environment').fetchall() != [('podzemelye-validation-v1',)]:
             raise ValueError('Неверный validation-маркер.')
+        if not conn.execute("SELECT pg_get_userbyid(relowner) <> current_user FROM pg_class WHERE oid='public.validation_environment'::regclass").fetchone()[0]:
+            raise ValueError('Validation-маркер должен принадлежать отдельной bootstrap-роли.')
         if conn.execute("SELECT has_table_privilege(current_user, 'public.validation_environment', 'UPDATE')").fetchone()[0]:
             raise ValueError('Используй ограниченную validation-роль, не владельца маркера.')
     return dsn

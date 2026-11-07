@@ -35,6 +35,7 @@ services:
     stop_grace_period: 50s
     environment:
       <<: *database
+      DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-0}
       MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
       MAX_SUPER_ADMIN_ID: ${MAX_SUPER_ADMIN_ID:-}
       MAX_CA_FILE: certificates/russian_trusted_root_ca.pem
