@@ -217,3 +217,41 @@ class LiveHTTPTests(unittest.TestCase):
             self.assertNotIn(TOKEN.encode(),body)
         self.assertEqual(self.request('/api/schedule',raw='')[0],401)
         self.assertEqual(self.request('/api/events',raw='')[0],401)
+
+
+@unittest.skipUnless(TEST_URL,'Нужна disposable TEST_DATABASE_URL.')
+class SchemaCopyUpgradeTests(unittest.TestCase):
+    def test_main_schema_copy_upgrade_preserves_existing_data_and_files(self):
+        from app.db import Database
+        from app.db.database import MIGRATIONS
+        schema='validation_main_'+uuid4().hex
+        with Database(TEST_URL).connect() as conn:
+            conn.execute(sql.SQL('CREATE SCHEMA {}').format(sql.Identifier(schema)))
+        def cleanup():
+            with Database(TEST_URL).connect() as conn:
+                conn.execute(sql.SQL('DROP SCHEMA {} CASCADE').format(sql.Identifier(schema)))
+        self.addCleanup(cleanup)
+        db=Database(make_conninfo(TEST_URL,options=f'-c search_path={schema}'))
+        # Files 001–005 were verified identical to main=459cc1c during audit.
+        with db.connect() as conn:
+            conn.execute('CREATE TABLE schema_migrations(version text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())')
+            for path in sorted(MIGRATIONS.glob('*.sql')):
+                if path.name >= '006':
+                    break
+                conn.execute(path.read_text(),prepare=False)
+                conn.execute('INSERT INTO schema_migrations(version) VALUES (%s)',(path.name,))
+            gid=conn.execute("INSERT INTO groups(name) VALUES ('SCHEMA-COPY-01') RETURNING id").fetchone()[0]
+            conn.execute('INSERT INTO users(max_user_id,group_id) VALUES (123456,%s)',(gid,))
+            task=conn.execute("INSERT INTO homework(group_id,owner_id,subject,body) VALUES (%s,123456,'Subject','Preserve body') RETURNING id",(gid,)).fetchone()[0]
+            conn.execute("INSERT INTO homework_files VALUES (%s,1,'keep.txt',%s)",(task,b'keep-old-homework'))
+            material=conn.execute("INSERT INTO useful_materials(category,title,body,link) VALUES ('study','Keep title','Keep body','') RETURNING id").fetchone()[0]
+            conn.execute("INSERT INTO useful_files VALUES (%s,1,'keep.txt',%s)",(material,b'keep-old-material'))
+        self.assertEqual(migrate(db),['006_ux.sql'])
+        self.assertEqual(migrate(db),[])
+        db.check_schema()
+        with db.connect() as conn:
+            self.assertEqual(conn.execute('SELECT max_user_id,group_id,institution_code,welcome_seen FROM users').fetchone(),(123456,gid,'akvt',True))
+            self.assertEqual(conn.execute('SELECT name FROM groups').fetchone(),('SCHEMA-COPY-01',))
+            self.assertEqual(bytes(conn.execute('SELECT data FROM homework_files').fetchone()[0]),b'keep-old-homework')
+            self.assertEqual(bytes(conn.execute('SELECT data FROM useful_files').fetchone()[0]),b'keep-old-material')
+            self.assertEqual(conn.execute('SELECT body FROM homework').fetchone(),('Preserve body',))
