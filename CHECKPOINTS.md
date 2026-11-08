@@ -98,3 +98,7 @@
 - После подтверждения владельца опубликована публичная версия 1: https://podzemelye-znaniy-demo.chipperloon.chatgpt.site . Проверка без cookies: HTML/JSON HTTP 200. Docker и окончательные SHA/PR — VALIDATION.md и финальный отчёт.
 
 - Финальные push/PR Actions bf91b92 зелёные: 210 total / 206 passed / 4 skipped (нет XLS) / 0 failed; 8 JS, smoke, recreate и оба restore прошли. Код в PR №2 → review/team, без merge main или обновления рабочего бота. Публичный сайт версии 1 работает без входа; native-кластер и локальный preview остановлены.
+
+
+### Release 8 ноября
+Создана release/hackathon-final-2026-11-08 от 126d21b. Полная функциональная сверка пяти веток — BRANCH_INVENTORY.md. Переработан самостоятельный сайт, сохранены функции бота и 7 миграций. Повторные тесты и границы — последний раздел VALIDATION.md; показ и резерв — UX_DEMO.md. Публикация сайта №2 согласована отдельно, рабочий бот/БД и main не переключались.

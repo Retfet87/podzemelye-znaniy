@@ -2,7 +2,7 @@
 
 # Передача «Подземелья знаний» команде
 
-Проект — прототип хакатона. Продолжайте существующий код в `review/team`, PR №1 в `main`. Основная инструкция запуска — [DEPLOYMENT.md](DEPLOYMENT.md), demo — [DEMO.md](DEMO.md), границы проверок — [VALIDATION.md](VALIDATION.md). Не копируйте рабочий `.env` в демонстрацию или Gemini.
+Проект — прототип хакатона. Финальный код — `release/hackathon-final-2026-11-08`; предыдущие PR №1 и №2 сохранены без объединения. Сверка всех веток — BRANCH_INVENTORY.md. Основная инструкция запуска — [DEPLOYMENT.md](DEPLOYMENT.md), demo — [DEMO.md](DEMO.md), границы проверок — [VALIDATION.md](VALIDATION.md). Не копируйте рабочий `.env` в демонстрацию или Gemini.
 
 ## Где что лежит
 
