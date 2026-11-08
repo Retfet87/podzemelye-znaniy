@@ -1,4 +1,4 @@
-"""Synthetic signatures and WSGI checks; no real MAX credentials or network."""
+"""Подставные подписи и WSGI, без рабочих учётных данных и сети MAX."""
 import hashlib
 import hmac
 import json

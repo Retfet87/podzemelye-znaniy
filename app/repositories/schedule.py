@@ -29,17 +29,34 @@ class ScheduleRepository:
 
     @staticmethod
     def save_lessons(cur, version, groups, lessons):
-        cur.executemany("INSERT INTO groups (name) VALUES (%s) ON CONFLICT DO NOTHING",
-                        [(name,) for name in groups])
+        cur.executemany(
+            "INSERT INTO groups (name) VALUES (%s) ON CONFLICT DO NOTHING",
+            [(name,) for name in groups],
+        )
         cur.execute("SELECT name, id FROM groups WHERE name = ANY(%s)", (list(groups),))
         ids = dict(cur.fetchall())
-        cur.executemany("INSERT INTO schedule_groups VALUES (%s, %s)",
-                        [(version, ids[name]) for name in groups])
+        cur.executemany(
+            "INSERT INTO schedule_groups VALUES (%s, %s)",
+            [(version, ids[name]) for name in groups],
+        )
         cur.executemany(
             """INSERT INTO schedule_lessons
                (import_id, group_id, weekday, pair, parity, subject, teacher, room, note, raw_rows)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-            [(version, ids[x["group"]], x["weekday"], x["pair"], x["parity"], x["subject"],
-              x["teacher"], x["room"], x["note"], list(x["raw"])) for x in lessons],
+            [
+                (
+                    version,
+                    ids[x["group"]],
+                    x["weekday"],
+                    x["pair"],
+                    x["parity"],
+                    x["subject"],
+                    x["teacher"],
+                    x["room"],
+                    x["note"],
+                    list(x["raw"]),
+                )
+                for x in lessons
+            ],
         )
         return ids

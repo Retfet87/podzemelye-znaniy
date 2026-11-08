@@ -1,4 +1,4 @@
-"""Regression checks for security and deployment findings from the team review."""
+"""Регрессии безопасности и запуска по результатам проверки команды."""
 import os
 import subprocess
 import tempfile

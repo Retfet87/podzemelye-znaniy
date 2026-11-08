@@ -1,4 +1,5 @@
 """Очередь уведомлений о домашних заданиях."""
+
 from app.timeutil import format_deadline
 
 

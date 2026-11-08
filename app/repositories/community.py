@@ -1,4 +1,5 @@
 """Мероприятия и полезные материалы: хранение и права доступа."""
+
 from collections import defaultdict
 
 from app.db.locks import EVENT_LOCK
@@ -7,12 +8,22 @@ from app.services.file_validation import validate_data
 from app.services.validation import validate_link
 from app.services.media import validate_media
 
-TAGS = {"study": "🎓 Учёба", "contest": "🏆 Конкурсы", "hackathon": "💻 Хакатоны",
-        "culture": "🎭 Культура", "sport": "⚽ Спорт", "important": "📢 Важное", "other": "🎉 Другое"}
+TAGS = {
+    "study": "🎓 Учёба",
+    "contest": "🏆 Конкурсы",
+    "hackathon": "💻 Хакатоны",
+    "culture": "🎭 Культура",
+    "sport": "⚽ Спорт",
+    "important": "📢 Важное",
+    "other": "🎉 Другое",
+}
 
 CATEGORIES = {
-    "curators": "Кураторы", "teachers": "Преподаватели", "rooms": "Кабинеты",
-    "study": "Учебные материалы", "links": "Полезные ссылки",
+    "curators": "Кураторы",
+    "teachers": "Преподаватели",
+    "rooms": "Кабинеты",
+    "study": "Учебные материалы",
+    "links": "Полезные ссылки",
 }
 PAGE_SIZE = 8
 MEMBER = """EXISTS (SELECT 1 FROM users u JOIN groups g ON g.id = u.group_id
@@ -34,7 +45,8 @@ class CommunityStore:
         with self.store.connect() as conn:
             groups = conn.execute(
                 """SELECT group_id, group_name FROM homework_access(%(actor)s, %(admin)s)
-                   WHERE member AND can_manage""", self.params,
+                   WHERE member AND can_manage""",
+                self.params,
             ).fetchall()
             return ([(None, "Для всех групп")] if self.super else []) + groups
 
@@ -46,7 +58,8 @@ class CommunityStore:
                     ELSE ({ADMIN} OR {MEMBER}) AND state = 'published' AND ((starts_at <= now()) = %(history)s) END
                     AND (%(tag)s::text IS NULL OR %(tag)s = ANY(tags))
                     ORDER BY starts_at, id LIMIT {PAGE_SIZE + 1} OFFSET %(offset)s""",
-                self.params | {"review": review, "offset": offset, "history": history, "tag": tag},
+                self.params
+                | {"review": review, "offset": offset, "history": history, "tag": tag},
             ).fetchall()
 
     def event(self, event):
@@ -60,7 +73,8 @@ class CommunityStore:
                     FROM events e WHERE id = %(id)s AND ({ADMIN} OR
                     ({MEMBER} AND (state = 'published' OR (state = 'cancelled' AND EXISTS (
                         SELECT 1 FROM event_participants p WHERE p.event_id = e.id
-                        AND p.user_id = %(actor)s)))))""", self.params | {"id": event},
+                        AND p.user_id = %(actor)s)))))""",
+                self.params | {"id": event},
             ).fetchone()
 
     @staticmethod
@@ -73,17 +87,20 @@ class CommunityStore:
             args = self.params | {"id": event}
             if not conn.execute(
                 f"""SELECT 1 FROM events WHERE id = %(id)s AND state = 'published'
-                    AND starts_at > now() AND {MEMBER}""", args,
+                    AND starts_at > now() AND {MEMBER}""",
+                args,
             ).fetchone():
                 return False
             if join:
                 conn.execute(
                     """INSERT INTO event_participants VALUES (%(id)s, %(actor)s)
-                       ON CONFLICT DO NOTHING""", args,
+                       ON CONFLICT DO NOTHING""",
+                    args,
                 )
             else:
                 conn.execute(
-                    "DELETE FROM event_participants WHERE event_id = %(id)s AND user_id = %(actor)s", args,
+                    "DELETE FROM event_participants WHERE event_id = %(id)s AND user_id = %(actor)s",
+                    args,
                 )
             return True
 
@@ -91,7 +108,14 @@ class CommunityStore:
         if not set(draft.tags) <= TAGS.keys():
             raise ValueError("Выбери теги из списка.")
         self.validate_media_list(draft.media)
-        args = self.params | vars(draft) | {"tags": sorted(set(draft.tags)), "media_changed": draft.media is not None}
+        args = (
+            self.params
+            | vars(draft)
+            | {
+                "tags": sorted(set(draft.tags)),
+                "media_changed": draft.media is not None,
+            }
+        )
         with self.store.connect() as conn:
             self.event_lock(conn)
             if draft.id is None:
@@ -101,7 +125,8 @@ class CommunityStore:
                         CASE WHEN {ADMIN} THEN 'draft' ELSE 'proposed' END,
                         CASE WHEN NOT {ADMIN} THEN (SELECT group_id FROM users WHERE max_user_id = %(actor)s) END, %(tags)s
                         WHERE ({ADMIN} OR {PROPOSER}) AND %(starts_at)s > now()
-                        RETURNING id""", args,
+                        RETURNING id""",
+                    args,
                 ).fetchone()
             else:
                 row = conn.execute(
@@ -112,7 +137,8 @@ class CommunityStore:
                           AND state <> 'cancelled' AND starts_at > now() AND %(starts_at)s > now()
                           AND (%(media_changed)s OR (title, description, starts_at, place, tags) IS DISTINCT FROM
                               (%(title)s, %(body)s, %(starts_at)s, %(place)s, %(tags)s))
-                        RETURNING id, state""", args,
+                        RETURNING id, state""",
+                    args,
                 ).fetchone()
                 if row and row[1] == "published":
                     self.enqueue_event(conn, row[0], "changed")
@@ -127,9 +153,15 @@ class CommunityStore:
                 f"""UPDATE events SET state = %(target)s, revision = revision + 1
                     WHERE id = %(id)s AND revision = %(revision)s AND {ADMIN}
                       AND starts_at > now() AND state = ANY(%(source)s) RETURNING id""",
-                self.params | {"id": event, "revision": revision,
-                               "target": "published" if publish else "cancelled",
-                               "source": ["draft", "proposed"] if publish else ["draft", "proposed", "published"]},
+                self.params
+                | {
+                    "id": event,
+                    "revision": revision,
+                    "target": "published" if publish else "cancelled",
+                    "source": ["draft", "proposed"]
+                    if publish
+                    else ["draft", "proposed", "published"],
+                },
             ).fetchone()
             if row and not publish:
                 self.enqueue_event(conn, event, "cancelled")
@@ -138,15 +170,19 @@ class CommunityStore:
     @staticmethod
     def enqueue_event(conn, event, kind):
         title, description, starts_at, place = conn.execute(
-            "SELECT title, description, starts_at, place FROM events WHERE id = %s", (event,),
+            "SELECT title, description, starts_at, place FROM events WHERE id = %s",
+            (event,),
         ).fetchone()
-        label = "Мероприятие отменено" if kind == "cancelled" else "Мероприятие изменилось"
+        label = (
+            "Мероприятие отменено" if kind == "cancelled" else "Мероприятие изменилось"
+        )
         body = label + "\n" + event_text(title, description, starts_at, place)
         conn.execute(
             """INSERT INTO event_notifications (event_id, user_id, kind, version, valid_until, body)
                SELECT e.id, p.user_id, %s, e.revision, now() + interval '1 day', %s
                FROM events e JOIN event_participants p ON p.event_id = e.id WHERE e.id = %s
-               ON CONFLICT DO NOTHING""", (kind, body, event),
+               ON CONFLICT DO NOTHING""",
+            (kind, body, event),
         )
 
     @staticmethod
@@ -172,7 +208,7 @@ class CommunityStore:
         with self.store.connect() as conn:
             return conn.execute(
                 f"""SELECT category, title, body, link, group_id, revision,
-                    {self.editable_material('m.group_id')},
+                    {self.editable_material("m.group_id")},
                     ARRAY(SELECT name FROM useful_files WHERE material_id = m.id ORDER BY slot),
                     coalesce((SELECT name FROM groups WHERE id = m.group_id), 'Для всех групп')
                     FROM useful_materials m WHERE id = %(id)s AND {self.visible_material()}""",
@@ -196,7 +232,12 @@ class CommunityStore:
                 raise ValueError("Можно прикрепить до трёх файлов.")
             for name, data in draft.files:
                 validate_data(name, data)
-        if not (draft.body or draft.link or draft.files or (draft.files is None and draft.names)):
+        if not (
+            draft.body
+            or draft.link
+            or draft.files
+            or (draft.files is None and draft.names)
+        ):
             raise ValueError("Добавь текст, ссылку или файл.")
         args = self.params | vars(draft)
         with self.store.connect() as conn:
@@ -204,31 +245,39 @@ class CommunityStore:
                 row = conn.execute(
                     f"""INSERT INTO useful_materials (group_id, category, title, body, link)
                         SELECT %(group)s, %(category)s, %(title)s, %(body)s, %(link)s
-                        WHERE {self.editable_material('%(group)s::bigint')} RETURNING id""", args,
+                        WHERE {self.editable_material("%(group)s::bigint")} RETURNING id""",
+                    args,
                 ).fetchone()
             else:
                 row = conn.execute(
                     f"""UPDATE useful_materials m SET title = %(title)s, body = %(body)s,
                         link = %(link)s, revision = revision + 1
                         WHERE id = %(id)s AND revision = %(revision)s
-                          AND {self.editable_material('m.group_id')} RETURNING id""", args,
+                          AND {self.editable_material("m.group_id")} RETURNING id""",
+                    args,
                 ).fetchone()
             if row and draft.files is not None:
                 conn.execute("DELETE FROM useful_files WHERE material_id = %s", row)
                 with conn.cursor() as cur:
-                    cur.executemany("INSERT INTO useful_files VALUES (%s, %s, %s, %s)", [
-                        (row[0], slot, name, data) for slot, (name, data) in enumerate(draft.files, 1)
-                    ])
+                    cur.executemany(
+                        "INSERT INTO useful_files VALUES (%s, %s, %s, %s)",
+                        [
+                            (row[0], slot, name, data)
+                            for slot, (name, data) in enumerate(draft.files, 1)
+                        ],
+                    )
             return row[0] if row else None
 
     def delete_material(self, item, revision):
         with self.store.connect() as conn:
-            return bool(conn.execute(
-                f"""DELETE FROM useful_materials m
+            return bool(
+                conn.execute(
+                    f"""DELETE FROM useful_materials m
                     WHERE id = %(id)s AND revision = %(revision)s
-                      AND {self.editable_material('m.group_id')}""",
-                self.params | {"id": item, "revision": revision},
-            ).rowcount)
+                      AND {self.editable_material("m.group_id")}""",
+                    self.params | {"id": item, "revision": revision},
+                ).rowcount
+            )
 
     def schedule_teachers(self, group_only: bool):
         """Собирает преподавателей, их предметы и кабинеты из актуального расписания XLS."""
@@ -301,23 +350,41 @@ class CommunityStore:
 
     @staticmethod
     def replace_media(conn, event, section, media):
-        conn.execute("DELETE FROM event_media WHERE event_id = %s AND section = %s", (event, section))
+        conn.execute(
+            "DELETE FROM event_media WHERE event_id = %s AND section = %s",
+            (event, section),
+        )
         with conn.cursor() as cur:
-            cur.executemany("INSERT INTO event_media VALUES (%s,%s,%s,%s,%s,%s)",
-                            [(event, section, i, kind, name, data) for i, (kind, name, data) in enumerate(media, 1)])
+            cur.executemany(
+                "INSERT INTO event_media VALUES (%s,%s,%s,%s,%s,%s)",
+                [
+                    (event, section, i, kind, name, data)
+                    for i, (kind, name, data) in enumerate(media, 1)
+                ],
+            )
 
     def details(self, event):
         if self.event(event) is None:
             return None
         with self.store.connect() as conn:
-            return conn.execute("SELECT tags, report_body, report_link, report_published FROM events WHERE id = %s", (event,)).fetchone()
+            return conn.execute(
+                "SELECT tags, report_body, report_link, report_published FROM events WHERE id = %s",
+                (event,),
+            ).fetchone()
 
     def media(self, event, section):
         details = self.details(event)
-        if not details or section not in ('event', 'report') or (section == 'report' and not (self.super or details[3])):
+        if (
+            not details
+            or section not in ("event", "report")
+            or (section == "report" and not (self.super or details[3]))
+        ):
             return []
         with self.store.connect() as conn:
-            return conn.execute("SELECT kind,name,data FROM event_media WHERE event_id = %s AND section = %s ORDER BY slot", (event, section)).fetchall()
+            return conn.execute(
+                "SELECT kind,name,data FROM event_media WHERE event_id = %s AND section = %s ORDER BY slot",
+                (event, section),
+            ).fetchall()
 
     def save_report(self, draft):
         validate_link(draft.link)
@@ -330,7 +397,9 @@ class CommunityStore:
                 f"""UPDATE events SET report_body = %(body)s, report_link = %(link)s,
                     report_published = true, revision = revision + 1
                     WHERE id = %(id)s AND revision = %(revision)s AND starts_at <= now()
-                      AND state = 'published' AND {ADMIN} RETURNING id""", self.params | vars(draft)).fetchone()
+                      AND state = 'published' AND {ADMIN} RETURNING id""",
+                self.params | vars(draft),
+            ).fetchone()
             if row and draft.media is not None:
-                self.replace_media(conn, row[0], 'report', draft.media)
+                self.replace_media(conn, row[0], "report", draft.media)
             return row[0] if row else None

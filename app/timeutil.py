@@ -1,4 +1,5 @@
 """Часовой пояс колледжа и разбор/вывод сроков."""
+
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -16,4 +17,8 @@ def parse_deadline(text, now=None):
 
 
 def format_deadline(deadline):
-    return deadline.astimezone(SAMARA).strftime("%d.%m.%Y %H:%M (Астрахань)") if deadline else "без срока"
+    return (
+        deadline.astimezone(SAMARA).strftime("%d.%m.%Y %H:%M (Астрахань)")
+        if deadline
+        else "без срока"
+    )

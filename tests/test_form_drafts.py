@@ -17,7 +17,7 @@ from app.timeutil import SAMARA
 
 @unittest.skipUnless(fixtures.TEST_URL, "Requires isolated PostgreSQL")
 class FormDraftTests(unittest.TestCase):
-    # PostgreSQLTests supplies disposable schema and migration assertions.
+    # Фикстура создаёт отдельную схему с проверенной миграцией.
     def setUp(self):
         fixtures.PostgreSQLTests.setUp(self)
         self.store.start(11)

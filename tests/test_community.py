@@ -217,8 +217,8 @@ class CommunityTests(unittest.TestCase):
         press("skip")
         input_text((datetime.now(SAMARA) + timedelta(days=3)).strftime("%d.%m.%Y %H:%M"))
         press("skip")
-        press("keep")  # tags
-        press("keep")  # media
+        press("keep")
+        press("keep")
         self.assertIn("Предпросмотр", client.answer.call_args.kwargs["text"])
         self.assertEqual(self.query("SELECT count(*) FROM events"), [(0,)])
         press("save")

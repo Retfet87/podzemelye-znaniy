@@ -1,4 +1,5 @@
 """Зависимости приложения и разобранное входящее событие MAX."""
+
 from dataclasses import dataclass
 
 from app.db.database import Database
@@ -24,7 +25,15 @@ class Deps:
     @classmethod
     def create(cls, client, db, admin=None, *, health=None):
         schedules = ScheduleRepository(db)
-        return cls(client, db, UserRepository(db), schedules, admin, TodayService(db, schedules), health)
+        return cls(
+            client,
+            db,
+            UserRepository(db),
+            schedules,
+            admin,
+            TodayService(db, schedules),
+            health,
+        )
 
 
 @dataclass(frozen=True)
@@ -67,12 +76,33 @@ class Context:
         body = as_object(message.get("body"))
         kind = update.get("update_type")
         if kind == "message_created":
-            return cls(deps, update, "message", max_user_id(message.get("sender")), chat_type, body)
+            return cls(
+                deps,
+                update,
+                "message",
+                max_user_id(message.get("sender")),
+                chat_type,
+                body,
+            )
         if kind == "message_callback":
             callback = as_object(update.get("callback"))
             callback_id = callback.get("callback_id")
             payload = callback.get("payload")
             actor = max_user_id(callback.get("user"))
-            if isinstance(callback_id, str) and callback_id.strip() and actor and isinstance(payload, str):
-                return cls(deps, update, "callback", actor, chat_type, body, callback_id, payload)
+            if (
+                isinstance(callback_id, str)
+                and callback_id.strip()
+                and actor
+                and isinstance(payload, str)
+            ):
+                return cls(
+                    deps,
+                    update,
+                    "callback",
+                    actor,
+                    chat_type,
+                    body,
+                    callback_id,
+                    payload,
+                )
         return cls(deps, update, "ignored", None, chat_type, body)

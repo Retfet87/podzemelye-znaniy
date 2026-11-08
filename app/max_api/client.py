@@ -1,4 +1,5 @@
 """HTTP-клиент платформы MAX (Long Polling, отправка сообщений, ответы на кнопки)."""
+
 import http.client
 import json
 import ssl
@@ -13,7 +14,15 @@ POLL_TIMEOUT = 30
 
 
 class MaxError(Exception):
-    def __init__(self, message, *, retryable=False, status=None, retry_after=None, attachment_pending=False):
+    def __init__(
+        self,
+        message,
+        *,
+        retryable=False,
+        status=None,
+        retry_after=None,
+        attachment_pending=False,
+    ):
         super().__init__(message)
         self.retryable = retryable
         self.status = status
@@ -47,22 +56,33 @@ class MaxClient:
                         f"MAX отклонил доступ (HTTP {status}). Проверь MAX_BOT_TOKEN и права бота.",
                         status=status,
                     )
-                retry_after = response.getheader("Retry-After") if status == 429 else None
-                retry_after = (int(retry_after) if isinstance(retry_after, str)
-                               and retry_after.isascii() and retry_after.isdecimal()
-                               and len(retry_after) <= 9 else None)
+                retry_after = (
+                    response.getheader("Retry-After") if status == 429 else None
+                )
+                retry_after = (
+                    int(retry_after)
+                    if isinstance(retry_after, str)
+                    and retry_after.isascii()
+                    and retry_after.isdecimal()
+                    and len(retry_after) <= 9
+                    else None
+                )
                 attachment_pending = False
                 if status == 400 and method == "POST" and path == "/messages":
                     try:
                         error_body = json.loads(response.read(8192))
-                        attachment_pending = (isinstance(error_body, dict)
-                                              and error_body.get("code") == "attachment.not.ready")
+                        attachment_pending = (
+                            isinstance(error_body, dict)
+                            and error_body.get("code") == "attachment.not.ready"
+                        )
                     except (ValueError, UnicodeError):
                         pass
                 raise MaxError(
                     f"MAX вернул HTTP {status} для {method} {path}.",
                     retryable=status in (408, 429) or 500 <= status < 600,
-                    status=status, retry_after=retry_after, attachment_pending=attachment_pending,
+                    status=status,
+                    retry_after=retry_after,
+                    attachment_pending=attachment_pending,
                 )
             result = json.loads(response.read())
         except ssl.SSLCertVerificationError:
@@ -92,14 +112,17 @@ class MaxClient:
 
     def welcome_attachment(self):
         from app.max_api.media import welcome
+
         return welcome(self)
 
     def receive_media(self, attachment):
         from app.max_api.media import receive_media
+
         return receive_media(self, attachment)
 
     def upload_media(self, kind, name, data):
         from app.max_api.media import upload_media
+
         return upload_media(self, kind, name, data)
 
     def get_updates(self, marker):
@@ -134,6 +157,7 @@ class MaxClient:
     def answer(self, callback_id, *, text=None, notification=None, attachments=None):
         payload = (
             {"message": {"text": text, "attachments": with_home(attachments)}}
-            if text is not None else {"notification": notification}
+            if text is not None
+            else {"notification": notification}
         )
         self.request("POST", "/answers", {"callback_id": callback_id}, payload=payload)

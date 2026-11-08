@@ -114,7 +114,7 @@ class PublicationTests(unittest.TestCase):
     def test_concurrent_confirmation_stale_and_repeat_import(self):
         token, changes, _, _ = self.draft()
         other = self.draft()[0]
-        self.assertEqual(token, other)  # Repeated checks reuse the same pending preview.
+        self.assertEqual(token, other)  # Повторная проверка должна использовать тот же неподтверждённый предпросмотр.
         stale = self.draft([lesson(room="ауд. 99"), self.rows[1]])[0]
         self.assertEqual({c["kind"] for c in changes}, {"changed"})
         with ThreadPoolExecutor(max_workers=2) as pool:

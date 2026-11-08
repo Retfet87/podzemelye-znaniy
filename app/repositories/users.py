@@ -56,30 +56,45 @@ class UserRepository:
                 [(name,) for name in names],
             )
 
-
     def institutions(self):
         with self.db.connect() as conn:
-            return conn.execute("SELECT code, name FROM institutions WHERE active ORDER BY name").fetchall()
+            return conn.execute(
+                "SELECT code, name FROM institutions WHERE active ORDER BY name"
+            ).fetchall()
 
     def institution(self, user_id):
         with self.db.connect() as conn:
-            row = conn.execute("SELECT institution_code FROM users WHERE max_user_id = %s", (user_id,)).fetchone()
+            row = conn.execute(
+                "SELECT institution_code FROM users WHERE max_user_id = %s", (user_id,)
+            ).fetchone()
             return row[0] if row else None
 
     def choose_institution(self, user_id, code):
         with self.db.connect() as conn:
-            return bool(conn.execute(
-                """UPDATE users SET institution_code = %s WHERE max_user_id = %s AND group_id IS NULL
-                   AND EXISTS (SELECT 1 FROM institutions WHERE code = %s AND active)""", (code, user_id, code)).rowcount)
+            return bool(
+                conn.execute(
+                    """UPDATE users SET institution_code = %s WHERE max_user_id = %s AND group_id IS NULL
+                   AND EXISTS (SELECT 1 FROM institutions WHERE code = %s AND active)""",
+                    (code, user_id, code),
+                ).rowcount
+            )
 
     def institution_groups(self, code):
         with self.db.connect() as conn:
-            return conn.execute("SELECT id, name FROM groups WHERE active AND institution_code = %s ORDER BY name", (code,)).fetchall()
+            return conn.execute(
+                "SELECT id, name FROM groups WHERE active AND institution_code = %s ORDER BY name",
+                (code,),
+            ).fetchall()
 
     def welcome_needed(self, user_id):
         with self.db.connect() as conn:
-            return conn.execute("SELECT NOT welcome_seen FROM users WHERE max_user_id = %s", (user_id,)).fetchone() == (True,)
+            return conn.execute(
+                "SELECT NOT welcome_seen FROM users WHERE max_user_id = %s", (user_id,)
+            ).fetchone() == (True,)
 
     def mark_welcome(self, user_id):
         with self.db.connect() as conn:
-            conn.execute("UPDATE users SET welcome_seen = true WHERE max_user_id = %s", (user_id,))
+            conn.execute(
+                "UPDATE users SET welcome_seen = true WHERE max_user_id = %s",
+                (user_id,),
+            )

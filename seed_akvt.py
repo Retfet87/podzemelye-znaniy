@@ -1,7 +1,8 @@
-"""Compatibility entrypoint for the isolated demo seed. No production config."""
+"""Совместимый вход в изолированный DEMO-seed без рабочих настроек."""
+
 from seed_demo import main
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         main()
     except ValueError as error:

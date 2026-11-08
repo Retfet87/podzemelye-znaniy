@@ -1,4 +1,5 @@
 """Применение SQL-миграций из папки migrations/."""
+
 from app.db.database import MIGRATIONS
 from app.db.locks import MIGRATION_LOCK
 

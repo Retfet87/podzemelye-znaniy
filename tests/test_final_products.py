@@ -1,4 +1,4 @@
-"""Acceptance of imported team UI, strict API and independent public fixtures."""
+"""Проверка командного UI и границы между закрытым API и публичными примерами."""
 import json
 import hashlib
 import re

@@ -1,4 +1,5 @@
 """Конфигурация: чтение .env, TLS-контекст для MAX и настройки администратора."""
+
 import os
 import re
 import ssl
@@ -11,8 +12,17 @@ def load_config(path=PROJECT_DIR / ".env"):
     """Читает локальный .env или разрешённые настройки Docker Compose."""
     if os.environ.get("BOT_CONFIG_MODE") == "compose":
         keys = (
-            "BOT_HEALTH_FILE", "DB_POOL_MAX_SIZE", "BOT_CONFIG_MODE", "POSTGRES_PASSWORD", "POSTGRES_DB", "POSTGRES_USER", "MAX_BOT_TOKEN", "MAX_SUPER_ADMIN_ID",
-            "MAX_CA_FILE", "SCHEDULE_NOTIFICATIONS_ENABLED", "HOMEWORK_NOTIFICATIONS_ENABLED",
+            "BOT_HEALTH_FILE",
+            "DB_POOL_MAX_SIZE",
+            "BOT_CONFIG_MODE",
+            "POSTGRES_PASSWORD",
+            "POSTGRES_DB",
+            "POSTGRES_USER",
+            "MAX_BOT_TOKEN",
+            "MAX_SUPER_ADMIN_ID",
+            "MAX_CA_FILE",
+            "SCHEDULE_NOTIFICATIONS_ENABLED",
+            "HOMEWORK_NOTIFICATIONS_ENABLED",
             "EVENT_NOTIFICATIONS_ENABLED",
         )
         return {key: os.environ[key] for key in keys if key in os.environ}

@@ -1,4 +1,5 @@
 """Очередь уведомлений о мероприятиях."""
+
 from app.services.events import event_text
 
 
@@ -42,7 +43,21 @@ def next_job(conn):
     """).fetchone()
     if row is None:
         return None
-    job, user, attempts, due, kind, body, title, description, starts, place, eligible = row
+    (
+        job,
+        user,
+        attempts,
+        due,
+        kind,
+        body,
+        title,
+        description,
+        starts,
+        place,
+        eligible,
+    ) = row
     if kind == "reminder":
-        body = "Напоминание о мероприятии\n" + event_text(title, description, starts, place)
+        body = "Напоминание о мероприятии\n" + event_text(
+            title, description, starts, place
+        )
     return job, user, attempts, due, body, eligible

@@ -26,6 +26,13 @@ compose exec -T postgres createdb -U podzemelye podzemelye_demo
 docker exec -i -e POSTGRES_USER=podzemelye -e DEMO_DB_PASSWORD=isolated-demo-password "$database" sh < scripts/demo-init.sh
 compose exec -T postgres psql -U podzemelye -d podzemelye_demo -v ON_ERROR_STOP=1 -c "CREATE TABLE public.validation_environment (environment text PRIMARY KEY); INSERT INTO public.validation_environment VALUES ('podzemelye-validation-v1'); GRANT SELECT ON public.validation_environment TO demo_app;"
 image=$(compose images -q migrate | head -n 1)
+# Полный вход без токена должен завершиться до создания транспорта MAX.
+bootstrap_log=$(mktemp)
+bootstrap_exit=0
+docker run --rm "$image" python main.py > "$bootstrap_log" 2>&1 || bootstrap_exit=$?
+test "$bootstrap_exit" -eq 1
+grep -q 'MAX_BOT_TOKEN отсутствует' "$bootstrap_log"
+rm "$bootstrap_log"
 test_url="postgresql://podzemelye:$POSTGRES_PASSWORD@127.0.0.1:5432/podzemelye_test"
 docker run --rm --network "container:$database" --volume "$root/tests:/app/tests:ro" \
     --env "VALIDATION_DATABASE_URL=$test_url" \

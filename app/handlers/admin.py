@@ -1,4 +1,5 @@
 """Команды супер-администратора: подтверждение и отмена публикации расписания."""
+
 import logging
 from uuid import UUID
 
@@ -33,8 +34,9 @@ class AdminHandler(Handler):
             if len(args) != 2 or len(args[1]) != 36:
                 raise ValueError
             token = UUID(args[1])
-            status = decide(ctx.db, administrator, ctx.actor, token,
-                            confirm=ADMIN_COMMANDS[args[0]])
+            status = decide(
+                ctx.db, administrator, ctx.actor, token, confirm=ADMIN_COMMANDS[args[0]]
+            )
             reply = ADMIN_RESULTS[status]
         except ValueError:
             reply = "Укажи код предпросмотра из локальной команды."

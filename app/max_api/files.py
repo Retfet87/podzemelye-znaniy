@@ -1,4 +1,5 @@
 """Передача файлов через CDN MAX: скачивание вложений и загрузка своих."""
+
 import http.client
 import json
 import re
@@ -16,9 +17,15 @@ def cdn_target(url):
             raise ValueError
         parsed = urlsplit(url)
         host = parsed.hostname
-        if (parsed.scheme != "https" or not host or not host.endswith(CDN_SUFFIXES)
-                or not re.fullmatch(r"[a-z0-9.-]+", host) or parsed.port not in (None, 443)
-                or parsed.username is not None or parsed.fragment):
+        if (
+            parsed.scheme != "https"
+            or not host
+            or not host.endswith(CDN_SUFFIXES)
+            or not re.fullmatch(r"[a-z0-9.-]+", host)
+            or parsed.port not in (None, 443)
+            or parsed.username is not None
+            or parsed.fragment
+        ):
             raise ValueError
         return host, (parsed.path or "/") + (f"?{parsed.query}" if parsed.query else "")
     except ValueError:
@@ -29,7 +36,7 @@ def receive_file(context, attachment):
     payload = attachment.get("payload") if isinstance(attachment, dict) else None
     if not isinstance(payload, dict) or attachment.get("type") != "file":
         raise ValueError("Отправь вложение как файл.")
-    # MAX currently returns metadata beside payload; older shapes document it inside.
+    # Поддерживаем метаданные рядом с payload и прежний вложенный формат MAX.
     name = attachment.get("filename", payload.get("filename"))
     size = attachment.get("size", payload.get("size"))
     file_type(name)
@@ -52,8 +59,14 @@ def upload_file(client, name, data):
         f"Content-Type: {mime}\r\n\r\n"
     ).encode()
     body = prefix + data + f"\r\n--{boundary}--\r\n".encode()
-    raw = transfer(client.context, result.get("url"), "POST", limit=65536, body=body,
-                   headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+    raw = transfer(
+        client.context,
+        result.get("url"),
+        "POST",
+        limit=65536,
+        body=body,
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+    )
     try:
         reply = json.loads(raw)
         token = reply.get("token") if isinstance(reply, dict) else None
@@ -66,17 +79,22 @@ def upload_file(client, name, data):
 
 def transfer(context, url, method, *, limit, body=None, headers=None):
     host, target = cdn_target(url)
-    # The URL comes from an authenticated MAX update/API response. Do not follow
-    # redirects or send credentials to the CDN.
+    # Даже URL из ответа MAX не разрешает редиректы и передачу токена на CDN.
     connection = http.client.HTTPSConnection(host, timeout=10, context=context)
     try:
         connection.request(method, target, body=body, headers=headers or {})
         response = connection.getresponse()
         length = response.getheader("Content-Length")
-        if length is not None and (not isinstance(length, str) or not length.isascii()
-                                   or not length.isdecimal() or len(length) > 12):
+        if length is not None and (
+            not isinstance(length, str)
+            or not length.isascii()
+            or not length.isdecimal()
+            or len(length) > 12
+        ):
             raise ValueError("MAX не передал файл допустимого размера.")
-        if not 200 <= response.status < 300 or (length is not None and not 0 <= int(length) <= limit):
+        if not 200 <= response.status < 300 or (
+            length is not None and not 0 <= int(length) <= limit
+        ):
             raise ValueError("MAX не передал файл допустимого размера.")
         data = response.read(limit + 1)
         if len(data) > limit:

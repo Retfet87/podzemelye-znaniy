@@ -1,4 +1,5 @@
 """Long Polling: получение событий MAX и передача их роутеру."""
+
 import logging
 import time
 
@@ -22,7 +23,11 @@ def run_polling(client, router, *, health=None, guard=None):
                 health.max_failure(error.status)
             if not error.retryable:
                 if health is not None:
-                    health.critical("max_authentication" if error.status == 401 else "max_api_failure")
+                    health.critical(
+                        "max_authentication"
+                        if error.status == 401
+                        else "max_api_failure"
+                    )
                 if error.status in (400, 409):
                     logger.error("Проверь, что у бота нет активной подписки Webhook.")
                 raise

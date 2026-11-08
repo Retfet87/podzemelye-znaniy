@@ -303,7 +303,7 @@ class UXDatabaseTests(unittest.TestCase):
 
     @unittest.skipUnless(os.environ.get('AKVT_TEST_XLS'), 'Нужно реальное XLS для демонстрационного импорта.')
     def test_demo_real_xls_cli_repeat_cleanup(self):
-        # Only this randomly isolated test schema; the production DSN is never used.
+        # Только случайная тестовая схема, рабочий DSN не используется.
         self.query('DELETE FROM users')
         self.query("CREATE TABLE demo_environment (environment text PRIMARY KEY)")
         self.query("INSERT INTO demo_environment VALUES ('podzemelye-demo-v1')")
@@ -360,7 +360,7 @@ class UXDatabaseTests(unittest.TestCase):
             self.assertEqual(refresh_site_demo(conn), (32, 4))
     # Непомеченное чужое событие сохранилось
         self.assertEqual(self.query("SELECT description FROM events WHERE id = %s", (unmarked_event,)), [('Чужая запись',)])
-    # Сравнение текстов с site.json один в один
+    # Содержимое совпадает с site.json с учётом отдельного предупреждения DEMO.
         raw_site = load_site()['sections']
         db_useful = dict(self.query("SELECT title, body FROM useful_materials WHERE id IN (SELECT record_id FROM demo_records WHERE kind = 'material')"))
         for card in raw_site['useful']['cards']:

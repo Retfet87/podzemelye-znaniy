@@ -1,4 +1,5 @@
 """Очередь уведомлений об обновлении расписания."""
+
 from app.notifications.common import MAX_ATTEMPTS
 
 

@@ -1,4 +1,5 @@
-"""Запуск бота: python main.py (или python -m app)."""
+"""Запуск бота: python main.py."""
+
 from app.bootstrap import main
 
 if __name__ == "__main__":

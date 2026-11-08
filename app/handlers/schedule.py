@@ -1,4 +1,5 @@
 """Меню «Расписание»: сегодня, завтра, неделя."""
+
 import logging
 import os
 
@@ -43,7 +44,10 @@ class ScheduleHandler(Handler):
         if not ctx.payload.startswith("schedule:"):
             return False
         if not ctx.private:
-            ctx.client.answer(ctx.callback_id, notification="Открой расписание в личном диалоге с ботом.")
+            ctx.client.answer(
+                ctx.callback_id,
+                notification="Открой расписание в личном диалоге с ботом.",
+            )
             return True
         self.show(ctx, ctx.payload.removeprefix("schedule:"))
         return True
@@ -54,7 +58,9 @@ class ScheduleHandler(Handler):
 
         def respond(text=None, *, attachments=None, notification=None):
             if is_message or callback_id is None:
-                client.send_message({"user_id": user_id}, text or notification, attachments=attachments)
+                client.send_message(
+                    {"user_id": user_id}, text or notification, attachments=attachments
+                )
             else:
                 if text is None:
                     client.answer(callback_id, notification=notification)
@@ -69,12 +75,32 @@ class ScheduleHandler(Handler):
                     return
             elif action == "website":
                 from app.services.validation import validate_public_site_url
-                url = validate_public_site_url(os.environ.get("PUBLIC_DEMO_SITE_URL", ""))
+
+                url = validate_public_site_url(
+                    os.environ.get("PUBLIC_DEMO_SITE_URL", "")
+                )
                 if not url:
-                    respond(text="Демонстрационный сайт ещё не опубликован. Все функции бота доступны в меню.", attachments=HOME)
+                    respond(
+                        text="Демонстрационный сайт ещё не опубликован. Все функции бота доступны в меню.",
+                        attachments=HOME,
+                    )
                 else:
                     from app.max_api.keyboards import inline_keyboard
-                    respond(text="Демонстрационный сайт · только вымышленные данные. Откроется в обычном браузере.", attachments=inline_keyboard([[{"type":"link","text":"Открыть ДЕМО-сайт","url":url}]]))
+
+                    respond(
+                        text="Демонстрационный сайт · только вымышленные данные. Откроется в обычном браузере.",
+                        attachments=inline_keyboard(
+                            [
+                                [
+                                    {
+                                        "type": "link",
+                                        "text": "Открыть ДЕМО-сайт",
+                                        "url": url,
+                                    }
+                                ]
+                            ]
+                        ),
+                    )
                 return
             elif action in ("open", "back"):
                 group = ctx.users.registered_group(user_id)

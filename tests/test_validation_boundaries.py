@@ -1,4 +1,4 @@
-"""Real PostgreSQL and loopback HTTP boundaries. No MAX HTTP transport is used."""
+"""Настоящие PostgreSQL и локальный HTTP, без сетевого транспорта MAX."""
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime,timedelta
 import http.client
@@ -35,14 +35,14 @@ DEMO_URL=os.environ.get('VALIDATION_DEMO_DATABASE_URL')
 @unittest.skipUnless(DEMO_URL,'Нужна отдельная provisioned VALIDATION_DEMO_DATABASE_URL.')
 class DemoRoleTests(unittest.TestCase):
     def setUp(self):
-        # The separate validation database marker must already be bootstrap-owned.
+        # Validation-маркер заранее создаёт отдельная bootstrap-роль.
         with patch.dict(os.environ,{'DEMO_DATABASE_URL':DEMO_URL},clear=True):
             self.control=demo_database()
         values=conninfo_to_dict(DEMO_URL)
         self.assertEqual((values['dbname'],values['user']),('podzemelye_demo','demo_app'))
-        # demo_app is intentionally not allowed to CREATE SCHEMA; use a unique
-        # table namespace via public table transactions instead of elevated setup.
-        # A dedicated fresh demo database is reserved for this class only.
+        # У demo_app нет CREATE SCHEMA: тестируем в выделенной базе,
+        # не повышая права ради фикстуры.
+        # Этот класс получает собственную свежую DEMO-базу.
         self.db=self.control
         with self.db.connect() as conn:
             self.assertEqual(conn.execute('SELECT environment FROM public.validation_environment').fetchall(),[('podzemelye-validation-v1',)])
@@ -232,7 +232,7 @@ class SchemaCopyUpgradeTests(unittest.TestCase):
                 conn.execute(sql.SQL('DROP SCHEMA {} CASCADE').format(sql.Identifier(schema)))
         self.addCleanup(cleanup)
         db=Database(make_conninfo(TEST_URL,options=f'-c search_path={schema}'))
-        # Files 001–005 were verified identical to main=459cc1c during audit.
+        # 001–005 совпадали с исходной main=459cc1c; сохраняем путь обновления.
         with db.connect() as conn:
             conn.execute('CREATE TABLE schema_migrations(version text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())')
             for path in sorted(MIGRATIONS.glob('*.sql')):

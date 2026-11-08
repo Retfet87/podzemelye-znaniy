@@ -1,4 +1,4 @@
-"""Isolation boundaries: no production fallback, unauthorised output or notifications."""
+"""Изоляция DEMO без рабочих fallback, посторонних адресатов и рассылок."""
 import json
 import os
 from pathlib import Path

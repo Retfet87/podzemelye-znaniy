@@ -1,4 +1,5 @@
 """Домашние задания: хранение, права доступа и настройки уведомлений."""
+
 from app.db.locks import HOMEWORK_LOCK
 from app.services.file_validation import validate_data
 
@@ -17,7 +18,7 @@ EDITABLE = """(h.owner_id = %(actor)s OR (h.owner_id IS NULL AND a.can_manage))"
 ACCESS = """homework_access(%(actor)s, %(administrator)s) a"""
 SCOPED = f"""LEFT JOIN {ACCESS} ON a.group_id = h.group_id"""
 MANAGES = f"""EXISTS (SELECT 1 FROM {ACCESS} WHERE a.group_id = h.group_id AND a.can_manage)"""
-# Use the latest base timetable, plus published date overrides still in effect.
+# Предметы берём из последней базы и ещё действующих замен на конкретные даты.
 SUBJECTS = """
     SELECT DISTINCT l.subject
     FROM schedule_lessons l JOIN schedule_imports i ON i.id = l.import_id
@@ -46,13 +47,13 @@ class HomeworkStore:
         self.context = {"actor": actor, "administrator": administrator}
 
     def due_count(self, now, until):
-        """Only own/group deadlines in the half-open time window, never other admin groups."""
+        """Сроки своей группы и личных заданий в полуинтервале; без чужих админских групп."""
         with self.store.connect() as conn:
             return conn.execute(
                 f"""SELECT count(*) FROM homework h {SCOPED}
                     WHERE {VISIBLE} AND (h.owner_id = %(actor)s OR a.member)
                       AND h.deadline >= %(now)s AND h.deadline < %(until)s""",
-                self.context | {'now': now, 'until': until},
+                self.context | {"now": now, "until": until},
             ).fetchone()[0]
 
     def groups(self, shared):
@@ -65,7 +66,11 @@ class HomeworkStore:
             ).fetchall()
             # Если пользователь зарегистрирован в группе (member=True),
             # для просмотра заданий используем сразу его группу без лишнего выбора.
-            member_rows = [(gid, name, can_manage) for gid, name, can_manage, is_member in rows if is_member]
+            member_rows = [
+                (gid, name, can_manage)
+                for gid, name, can_manage, is_member in rows
+                if is_member
+            ]
             if member_rows and not shared:
                 return member_rows
             return [(gid, name, can_manage) for gid, name, can_manage, _ in rows]
@@ -92,9 +97,12 @@ class HomeworkStore:
 
     def due_list(self, start, end):
         with self.store.connect() as conn:
-            return conn.execute(f"""SELECT h.id,h.subject,h.body,h.deadline FROM homework h
+            return conn.execute(
+                f"""SELECT h.id,h.subject,h.body,h.deadline FROM homework h
                 {SCOPED} WHERE {VISIBLE} AND h.deadline >= %(start)s AND h.deadline < %(end)s
-                ORDER BY h.deadline,h.id LIMIT 10""",self.context | {'start':start,'end':end}).fetchall()
+                ORDER BY h.deadline,h.id LIMIT 10""",
+                self.context | {"start": start, "end": end},
+            ).fetchall()
 
     def get(self, task):
         with self.store.connect() as conn:
@@ -127,21 +135,26 @@ class HomeworkStore:
                        SELECT u.max_user_id, g.id FROM users u JOIN groups g ON g.id = u.group_id
                        WHERE u.max_user_id = %(target)s AND g.active AND g.id = coalesce(%(group)s, g.id)
                          AND %(actor)s = %(administrator)s
-                       ON CONFLICT (user_id) DO UPDATE SET group_id = excluded.group_id""", args,
+                       ON CONFLICT (user_id) DO UPDATE SET group_id = excluded.group_id""",
+                    args,
                 )
             else:
                 result = conn.execute(
                     """DELETE FROM homework_group_admins
                        WHERE user_id = %(target)s AND group_id = coalesce(%(group)s, group_id)
-                         AND %(actor)s = %(administrator)s""", args,
+                         AND %(actor)s = %(administrator)s""",
+                    args,
                 )
             return bool(result.rowcount)
 
     def preferences(self):
         with self.store.connect() as conn:
-            return dict(conn.execute(
-                "SELECT category, enabled FROM homework_preferences WHERE user_id = %(actor)s", self.context,
-            ).fetchall())
+            return dict(
+                conn.execute(
+                    "SELECT category, enabled FROM homework_preferences WHERE user_id = %(actor)s",
+                    self.context,
+                ).fetchall()
+            )
 
     def set_preference(self, category, enabled):
         with self.store.connect() as conn:
@@ -165,9 +178,13 @@ class HomeworkStore:
             for name, data in draft.files:
                 validate_data(name, data)
         args = self.context | {
-            "group": draft.group, "shared": draft.shared, "task": draft.task,
-            "revision": draft.revision, "subject": draft.subject,
-            "body": draft.body, "deadline": draft.deadline,
+            "group": draft.group,
+            "shared": draft.shared,
+            "task": draft.task,
+            "revision": draft.revision,
+            "subject": draft.subject,
+            "body": draft.body,
+            "deadline": draft.deadline,
         }
         with self.store.connect() as conn:
             self.lock(conn)
@@ -180,7 +197,8 @@ class HomeworkStore:
                           AND CASE WHEN %(shared)s THEN a.can_manage ELSE a.member END
                           AND %(subject)s IN ({SUBJECTS})
                           AND coalesce(%(deadline)s::timestamptz > now(), true)
-                        RETURNING id""", args,
+                        RETURNING id""",
+                    args,
                 ).fetchone()
             else:
                 row = conn.execute(
@@ -196,17 +214,24 @@ class HomeworkStore:
                           ))
                           AND (h.deadline IS NOT DISTINCT FROM %(deadline)s
                                OR coalesce(%(deadline)s::timestamptz > now(), true))
-                        RETURNING h.id""", args,
+                        RETURNING h.id""",
+                    args,
                 ).fetchone()
             if not row:
                 return None
             task = row[0]
             if draft.files is not None:
-                conn.execute("DELETE FROM homework_files WHERE homework_id = %s", (task,))
+                conn.execute(
+                    "DELETE FROM homework_files WHERE homework_id = %s", (task,)
+                )
                 with conn.cursor() as cursor:
-                    cursor.executemany("INSERT INTO homework_files VALUES (%s, %s, %s, %s)", [
-                        (task, slot, name, data) for slot, (name, data) in enumerate(draft.files, 1)
-                    ])
+                    cursor.executemany(
+                        "INSERT INTO homework_files VALUES (%s, %s, %s, %s)",
+                        [
+                            (task, slot, name, data)
+                            for slot, (name, data) in enumerate(draft.files, 1)
+                        ],
+                    )
             if draft.shared and draft.task is None:
                 conn.execute(
                     """INSERT INTO homework_notifications
@@ -214,15 +239,18 @@ class HomeworkStore:
                        SELECT h.id, u.max_user_id, 'new', 1, now(),
                               least(now() + interval '1 day', h.deadline)
                        FROM homework h JOIN users u ON u.group_id = h.group_id
-                       WHERE h.id = %s ON CONFLICT DO NOTHING""", (task,),
+                       WHERE h.id = %s ON CONFLICT DO NOTHING""",
+                    (task,),
                 )
             return task
 
     def delete(self, task, revision):
         with self.store.connect() as conn:
             self.lock(conn)
-            return bool(conn.execute(
-                f"""DELETE FROM homework h WHERE h.id = %(task)s AND h.revision = %(revision)s
+            return bool(
+                conn.execute(
+                    f"""DELETE FROM homework h WHERE h.id = %(task)s AND h.revision = %(revision)s
                       AND (h.owner_id = %(actor)s OR (h.owner_id IS NULL AND {MANAGES}))""",
-                self.context | {"task": task, "revision": revision},
-            ).rowcount)
+                    self.context | {"task": task, "revision": revision},
+                ).rowcount
+            )

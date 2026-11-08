@@ -1,4 +1,5 @@
 """Проверка файлов-вложений: расширение, размер, сигнатура."""
+
 from pathlib import PurePath
 import unicodedata
 
@@ -14,8 +15,14 @@ FILE_TYPES = {
 
 
 def file_type(name):
-    if (not isinstance(name, str) or not 1 <= len(name) <= 100 or name != name.strip()
-            or any(c in '/\\"<>:|?*' or unicodedata.category(c).startswith("C") for c in name)):
+    if (
+        not isinstance(name, str)
+        or not 1 <= len(name) <= 100
+        or name != name.strip()
+        or any(
+            c in '/\\"<>:|?*' or unicodedata.category(c).startswith("C") for c in name
+        )
+    ):
         raise ValueError("Недопустимое имя файла.")
     suffix = PurePath(name).suffix.lower()
     if suffix not in FILE_TYPES:
@@ -35,10 +42,10 @@ def validate_data(name, data):
             valid = bool(text) and all(c.isprintable() or c in "\t\r\n" for c in text)
         except UnicodeDecodeError:
             valid = False
-    if PurePath(name).suffix.lower() == '.ics':
+    if PurePath(name).suffix.lower() == ".ics":
         try:
-            text = data.decode('utf-8')
-            valid = valid and text.endswith('END:VCALENDAR\r\n') and '\x00' not in text
+            text = data.decode("utf-8")
+            valid = valid and text.endswith("END:VCALENDAR\r\n") and "\x00" not in text
         except UnicodeError:
             valid = False
     if not valid:

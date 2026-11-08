@@ -1,4 +1,5 @@
 """Чтение четырёхстрочной сетки расписания АКВТ из BIFF XLS."""
+
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -55,10 +56,12 @@ def parse_block(values, split, group, weekday, pair, gray_flags=()):
         gray_flags = (False, False, False, False)
     actual_split = split or is_split_by_two_subjects(values)
     parts = (
-        (("numerator", values[:2], any(gray_flags[:2])),
-         ("denominator", values[2:], any(gray_flags[2:])))
-        if actual_split else
-        (("all", values, any(gray_flags)),)
+        (
+            ("numerator", values[:2], any(gray_flags[:2])),
+            ("denominator", values[2:], any(gray_flags[2:])),
+        )
+        if actual_split
+        else (("all", values, any(gray_flags)),)
     )
     for parity, rows, is_other_building in parts:
         if not any(rows):
@@ -72,18 +75,26 @@ def parse_block(values, split, group, weekday, pair, gray_flags=()):
             teacher = TEACHER.match(detail)
             if teacher:
                 teachers.append(teacher[0])
-                detail = detail[teacher.end():].strip()
+                detail = detail[teacher.end() :].strip()
             room = ROOM.match(detail)
             if room:
                 rooms.append(room[0])
-                detail = detail[room.end():].strip()
+                detail = detail[room.end() :].strip()
             if detail:
                 notes.append(detail)
         if is_other_building and not any("корпус" in n.lower() for n in notes):
             notes.append("Другой корпус")
-        yield Lesson(group, weekday, pair, parity, subject,
-                     " / ".join(teachers), " / ".join(rooms), " / ".join(notes),
-                     tuple(rows))
+        yield Lesson(
+            group,
+            weekday,
+            pair,
+            parity,
+            subject,
+            " / ".join(teachers),
+            " / ".join(rooms),
+            " / ".join(notes),
+            tuple(rows),
+        )
 
 
 def parse_xls(path, *, gray_other_building=False):
@@ -134,19 +145,24 @@ def parse_xls(path, *, gray_other_building=False):
                     return True
         return False
 
-    headers = [r for r in range(sheet.nrows)
-               if (value(r, 0), value(r, 1)) == ("Дни", "Часы")]
+    headers = [
+        r for r in range(sheet.nrows) if (value(r, 0), value(r, 1)) == ("Дни", "Часы")
+    ]
     if not headers:
         raise ValueError("Не найдена строка заголовков «Дни / Часы».")
     header = headers[0]
     groups = {c: value(header, c) for c in range(2, sheet.ncols) if value(header, c)}
-    if not groups or len(set(groups.values())) != len(groups) or not all(
-        GROUP.fullmatch(name) for name in groups.values()
+    if (
+        not groups
+        or len(set(groups.values())) != len(groups)
+        or not all(GROUP.fullmatch(name) for name in groups.values())
     ):
         raise ValueError("Не удалось однозначно прочитать заголовки групп.")
     slots = [r for r in range(header + 1, sheet.nrows) if value(r, 1) in SLOTS]
     if [value(r, 1) for r in slots] != list(SLOTS) * len(DAYS):
-        raise ValueError("Ожидалось шесть блоков по шесть пар, с понедельника по субботу.")
+        raise ValueError(
+            "Ожидалось шесть блоков по шесть пар, с понедельника по субботу."
+        )
     if slots[-1] + 4 > sheet.nrows or any(
         later - earlier < 4 for earlier, later in zip(slots, slots[1:])
     ):
@@ -154,16 +170,20 @@ def parse_xls(path, *, gray_other_building=False):
     lessons = []
     used_rows = set(headers)
     for weekday, day in enumerate(DAYS):
-        day_slots = slots[weekday * len(SLOTS):(weekday + 1) * len(SLOTS)]
+        day_slots = slots[weekday * len(SLOTS) : (weekday + 1) * len(SLOTS)]
         if "".join(value(r, 0) for r in range(day_slots[0], day_slots[-1] + 4)) != day:
             raise ValueError(f"Не совпала подпись дня «{day}».")
         for pair, row in enumerate(day_slots, 1):
             used_rows.update(range(row, row + 4))
             for col, name in groups.items():
                 values = [value(r, col) for r in range(row, row + 4)]
-                gray_flags = [gray_other_building and is_gray(r, col) for r in range(row, row + 4)]
+                gray_flags = [
+                    gray_other_building and is_gray(r, col) for r in range(row, row + 4)
+                ]
                 split = separator(row, col)
-                lessons.extend(parse_block(values, split, name, weekday, pair, gray_flags))
+                lessons.extend(
+                    parse_block(values, split, name, weekday, pair, gray_flags)
+                )
     for r in range(header + 1, sheet.nrows):
         for c in range(2, sheet.ncols):
             if value(r, c) and (r not in used_rows or c not in groups):
@@ -178,11 +198,16 @@ def print_summary(groups, lessons):
     for name in groups:
         print(f"{name}: {counts[name]}")
     print(f"Групп: {len(groups)}, записей: {len(lessons)}.")
-    print("Числитель / знаменатель / обе недели: " + " / ".join(
-        str(sum(lesson.parity == parity for lesson in lessons))
-        for parity in ("numerator", "denominator", "all")
-    ))
+    print(
+        "Числитель / знаменатель / обе недели: "
+        + " / ".join(
+            str(sum(lesson.parity == parity for lesson in lessons))
+            for parity in ("numerator", "denominator", "all")
+        )
+    )
     for lesson in lessons:
         if lesson.note or lesson.subject == "Предмет не указан":
-            print(f"{lesson.group}, {DAYS[lesson.weekday]}, пара {lesson.pair}, "
-                  f"{lesson.parity}: {' | '.join(filter(None, lesson.raw))}")
+            print(
+                f"{lesson.group}, {DAYS[lesson.weekday]}, пара {lesson.pair}, "
+                f"{lesson.parity}: {' | '.join(filter(None, lesson.raw))}"
+            )
