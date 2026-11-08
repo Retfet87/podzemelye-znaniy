@@ -1,0 +1,23 @@
+name: Verify bot and Docker
+on:
+  push:
+    branches: [main, 'review/**', 'release/**']
+  pull_request:
+    branches: [main, 'review/**', 'release/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-docker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Test frontend state and response races
+        run: node scripts/test_frontend.mjs
+      - name: Build standalone public demo
+        run: python -m scripts.build_demo_site
+      - name: Test without a MAX bot token
+        run: sh scripts/check_docker.sh

@@ -1,0 +1,88 @@
+services:
+  postgres:
+    image: postgres:16-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-podzemelye}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.docker}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: .
+    command: ["python", "manage.py", "migrate"]
+    environment: &database
+      BOT_CONFIG_MODE: compose
+      POSTGRES_DB: ${POSTGRES_DB:-podzemelye}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.docker}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  bot:
+    build: .
+    profiles: ["live"]
+    init: true
+    restart: unless-stopped
+    stop_signal: SIGINT
+    stop_grace_period: 50s
+    environment:
+      <<: *database
+      DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-0}
+      PUBLIC_DEMO_SITE_URL: ${PUBLIC_DEMO_SITE_URL:-}
+      MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
+      MAX_SUPER_ADMIN_ID: ${MAX_SUPER_ADMIN_ID:-}
+      MAX_CA_FILE: certificates/russian_trusted_root_ca.pem
+      SCHEDULE_NOTIFICATIONS_ENABLED: ${SCHEDULE_NOTIFICATIONS_ENABLED:-0}
+      HOMEWORK_NOTIFICATIONS_ENABLED: ${HOMEWORK_NOTIFICATIONS_ENABLED:-0}
+      EVENT_NOTIFICATIONS_ENABLED: ${EVENT_NOTIFICATIONS_ENABLED:-0}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  backup:
+    image: postgres:16-bookworm
+    profiles: ["tools"]
+    user: "${BACKUP_UID:-1000}:${BACKUP_GID:-1000}"
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGDATABASE: ${POSTGRES_DB:-podzemelye}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.docker}
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup.sh:/usr/local/bin/project-backup.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/project-backup.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backup-daily:
+    image: postgres:16-bookworm
+    profiles: ["scheduled-backup"]
+    user: "${BACKUP_UID:-1000}:${BACKUP_GID:-1000}"
+    restart: on-failure:3
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGDATABASE: ${POSTGRES_DB:-podzemelye}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.docker}
+      BACKUP_ROTATION_ENABLED: ${BACKUP_ROTATION_ENABLED:-0}
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup.sh:/usr/local/bin/project-backup.sh:ro
+      - ./scripts/backup_daily.sh:/usr/local/bin/project-backup-daily.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/project-backup-daily.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

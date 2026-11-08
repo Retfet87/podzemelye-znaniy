@@ -1,0 +1,4 @@
+psycopg[binary]==3.3.8
+xlrd==2.0.2
+Pillow==13.0.0
+psycopg_pool==3.3.3
