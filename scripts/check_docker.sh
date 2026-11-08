@@ -99,3 +99,15 @@ scheduled_restored=$(compose exec -T postgres psql -U podzemelye -d restore_sche
 expected_scheduled=$(printf '%s\n1\n7\nZHJhZnQgYXR0YWNobWVudA==' "$expected")
 test "$scheduled_restored" = "$expected_scheduled"
 echo "Docker: тесты, сохранение вложений/черновиков, one-shot и scheduled restore прошли."
+
+# Экспортируется тот же образ, на котором прошли тесты, без конфигурации запуска.
+if [ -n "${DOCKER_IMAGE_ARCHIVE:-}" ]; then
+    test ! -e "$DOCKER_IMAGE_ARCHIVE"
+    test ! -e "$DOCKER_IMAGE_ARCHIVE.tar"
+    docker tag "$image" podzemelye-znaniy:submission
+    docker save --output "$DOCKER_IMAGE_ARCHIVE.tar" podzemelye-znaniy:submission
+    gzip -c "$DOCKER_IMAGE_ARCHIVE.tar" > "$DOCKER_IMAGE_ARCHIVE"
+    rm "$DOCKER_IMAGE_ARCHIVE.tar"
+    (cd "$(dirname "$DOCKER_IMAGE_ARCHIVE")" && sha256sum "$(basename "$DOCKER_IMAGE_ARCHIVE")") > "$DOCKER_IMAGE_ARCHIVE.sha256"
+    docker image inspect --format '{{.Id}}' podzemelye-znaniy:submission
+fi

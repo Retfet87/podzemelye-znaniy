@@ -13,13 +13,13 @@ DAYS = ("Понедельник", "Вторник", "Среда", "Четвер�
 PARITY = {"numerator": "числитель", "denominator": "знаменатель"}
 
 
-PERIODS = {"today", "tomorrow", "week"}
+PERIODS = {"today", "tomorrow", "week", "next_week"}
 
 
 def requested_days(period, today=None):
     today = today or datetime.now(SAMARA).date()
-    if period == "week":
-        monday = today - timedelta(days=today.weekday())
+    if period in ("week", "next_week"):
+        monday = today - timedelta(days=today.weekday()) + timedelta(days=7 if period == "next_week" else 0)
         return [monday + timedelta(days=i) for i in range(7)]
     return [today + timedelta(days=period == "tomorrow")]
 
@@ -32,7 +32,7 @@ def format_schedule(rows):
         _, _, version, anchor, *_ = entries[0]
         title = f"{DAYS[day.weekday()]}, {day:%d.%m.%Y}"
         if version is None:
-            sections.append(f"{title}\nРасписание на эту дату не загружено.")
+            sections.append(f"{title}\nРасписание пока не опубликовано на эту дату.")
             continue
         current_parity = None
         if anchor is not None:

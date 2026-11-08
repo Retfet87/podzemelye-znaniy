@@ -41,6 +41,8 @@ class Draft:
     subjects: tuple = ()
     token: str = field(default_factory=lambda: uuid4().hex)
     touched: float = field(default_factory=monotonic)
+    date_cursor: str = ""
+    date_value: str = ""
 
     def move(self, step):
         self.step, self.token, self.touched = step, uuid4().hex, monotonic()
@@ -230,7 +232,7 @@ class HomeworkHandler(Handler):
             buttons.extend([("Назначить админа группы", f"role:grant:{group_id}"),
                             ("Снять админа группы", f"role:revoke:{group_id}")])
         title = f"Общие задания · {name}" if shared else "Личные задания"
-        reply(title if rows else f"{title}\nСписок пуст.", buttons + [("Назад", f"groups:{scope}:0")
+        reply(title if rows else f"{title}\nЗаданий пока нет. Личное задание можно добавить из меню заданий.", buttons + [("Назад", f"groups:{scope}:0")
               if shared and len(db.groups(True)) > 1 else ("Назад", "open")])
 
     def start(self, db, user, draft, reply):
@@ -263,10 +265,10 @@ class HomeworkHandler(Handler):
             if draft.task:
                 buttons.append(button("Оставить текст", "keep"))
         elif draft.step == "deadline":
-            text = "Отправь срок в формате ДД.ММ.ГГГГ ЧЧ:ММ (Астрахань)."
-            buttons = [button("Без срока", "skip")]
-            if draft.task:
-                buttons.append(button("Оставить срок", "keep"))
+            from app.services.date_picker import keyboard
+            text, attachments = keyboard(draft, "hw:", optional=True)
+            reply(text, custom_attachments=attachments)
+            return
         elif draft.step == "files":
             text = "Отправь до трёх файлов PDF, PNG, JPG или TXT, до 5 МБ каждый."
             if draft.files:
@@ -332,7 +334,16 @@ class HomeworkHandler(Handler):
                 raise ValueError(f"Отправь текст задания от 1 до {BODY_LIMIT} символов.")
             draft.move("deadline")
         elif step == "deadline":
-            if action is None:
+            from app.services.date_picker import choose
+            selected = choose(draft, ("dt:"+argument if action == "dt" else action), text=text)
+            if selected is not None:
+                done, value = selected
+                if not done:
+                    draft.move("deadline")
+                    self.prompt(reply, draft)
+                    return
+                draft.deadline = value
+            elif action is None:
                 draft.deadline = parse_deadline(text)
             elif action == "skip":
                 draft.deadline = None

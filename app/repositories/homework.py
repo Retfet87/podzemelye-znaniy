@@ -90,6 +90,12 @@ class HomeworkStore:
                 self.context | {"group": group, "shared": shared, "before": before},
             ).fetchall()
 
+    def due_list(self, start, end):
+        with self.store.connect() as conn:
+            return conn.execute(f"""SELECT h.id,h.subject,h.body,h.deadline FROM homework h
+                {SCOPED} WHERE {VISIBLE} AND h.deadline >= %(start)s AND h.deadline < %(end)s
+                ORDER BY h.deadline,h.id LIMIT 10""",self.context | {'start':start,'end':end}).fetchall()
+
     def get(self, task):
         with self.store.connect() as conn:
             return conn.execute(

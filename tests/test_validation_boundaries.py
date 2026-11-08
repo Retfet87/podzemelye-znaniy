@@ -131,7 +131,7 @@ class DemoRoleTests(unittest.TestCase):
         self.assertTrue(seed(self.db))
         self.assertFalse(seed(self.db))
         with self.db.connect() as conn:
-            self.assertEqual(conn.execute('SELECT count(*) FROM demo_records').fetchone(),(39,))
+            self.assertEqual(conn.execute('SELECT count(*) FROM demo_records').fetchone(),(40,))
             for table in ('event_notifications','homework_notifications','schedule_notifications'):
                 self.assertEqual(conn.execute(sql.SQL('SELECT count(*) FROM {}').format(sql.Identifier(table))).fetchone(),(0,))
         from app.repositories.community import CommunityStore

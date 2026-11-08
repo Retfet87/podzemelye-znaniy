@@ -11,6 +11,8 @@ from app.services.schedule_formatter import PERIODS, format_schedule, requested_
 logger = logging.getLogger(__name__)
 
 SCHEDULE_TRIGGERS = {
+    "следующая неделя": "next_week",
+    "расписание на следующую неделю": "next_week",
     "сайт": "website",
     "/site": "website",
     "расписание": "open",

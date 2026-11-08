@@ -1,4 +1,7 @@
-"""Small explicit intent rules after commands, active forms and section triggers."""
+"""Контекстные вопросы после команд, активных форм и основных разделов."""
+from datetime import datetime, timedelta, time
+from app.timeutil import SAMARA, format_deadline
+from app.services.today import lessons, start_end
 from app.handlers.base import Handler
 from app.handlers.menus import HOME,MENU
 from app.repositories.community import CommunityStore
@@ -16,7 +19,32 @@ class QuestionsHandler(Handler):
             return False
         text=normalise(ctx.text)
         buttons=HOME
-        if text in ('что завтра','какие завтра пары','что у меня завтра'):
+        now = datetime.now(SAMARA)
+        if text in ('что у меня сегодня','что сегодня','какие пары сегодня'):
+            reply=ctx.deps.today.home(ctx.actor,group,now=now)
+        elif text in ('какое расписание на следующую неделю','какие пары на следующей неделе'):
+            rows=ctx.schedules.for_user(ctx.actor,requested_days('next_week',now.date()))
+            reply=format_schedule(rows) if rows else 'Расписание пока не опубликовано.'
+            buttons=MENU
+        elif text in ('во сколько первая пара','когда первая пара'):
+            rows=ctx.schedules.for_user(ctx.actor,[now.date()])
+            current,uncertain=lessons(rows)
+            if uncertain:
+                reply='Тип недели не подтверждён. Открой расписание, чтобы сверить варианты.'
+            elif current:
+                first=min(current,key=lambda r:r[4])
+                subjects=' / '.join(sorted({r[6] for r in current if r[4]==first[4]}))
+                reply=f'Первая пара сегодня в {start_end(first)[0]:%H:%M}: {subjects}.'
+            else:
+                reply='Сегодня занятий нет.' if rows and rows[0][2] is not None else 'Расписание пока не опубликовано.'
+        elif text in ('какие задания на завтра','что задали на завтра','задания на завтра'):
+            start=datetime.combine(now.date()+timedelta(days=1),time.min,SAMARA)
+            tasks=HomeworkStore(ctx.db,ctx.actor,None).due_list(start,start+timedelta(days=1))
+            reply='\n'.join(f'{subject}: {body[:350]} · {format_deadline(deadline)}' for _,subject,body,deadline in tasks) or 'Заданий со сроком на завтра пока нет.'
+        elif text in ('какие ближайшие мероприятия','ближайшие мероприятия','какие мероприятия'):
+            rows=CommunityStore(ctx.db,ctx.actor,None).events(False,0)
+            reply='\n'.join(f'{title} · {when.astimezone(SAMARA):%d.%m %H:%M}' for _,title,when,_ in rows) or 'Мероприятий пока нет.'
+        elif text in ('что завтра','какие завтра пары','какие пары завтра','что у меня завтра'):
             rows=ctx.schedules.for_user(ctx.actor,requested_days('tomorrow'))
             reply=format_schedule(rows) if rows else 'Расписание на завтра не загружено.'
             buttons=MENU

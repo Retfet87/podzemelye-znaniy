@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch
 
 from PIL import Image
 
+from app.demo_site_data import load_site
 from app.handlers import Deps, build_router
 from app.handlers.community import Draft, CommunityHandler
 from app.handlers.homework import Draft as HomeworkDraft, HomeworkHandler
@@ -159,6 +160,31 @@ class UXDatabaseTests(unittest.TestCase):
         self.assertIsNone(self.super.save_report(report))
         self.assertEqual(self.query('SELECT count(*) FROM event_notifications'),[(0,)])
 
+    def test_synthetic_demo_four_weeks_and_one_off_are_isolated(self):
+        from app.services.demo_schedule import seed_schedule
+        from app.repositories.schedule import ScheduleRepository
+        from app.services.today import lessons
+        self.query("CREATE TABLE demo_environment (environment text PRIMARY KEY)")
+        self.query("INSERT INTO demo_environment VALUES ('podzemelye-demo-v1')")
+        future=datetime(datetime.now(SAMARA).year+1,12,28,tzinfo=SAMARA)
+        with patch('app.services.demo_schedule.datetime') as clock:
+            clock.now.return_value=future
+            seed_schedule(self.store)
+            seed_schedule(self.store)
+        self.assertEqual(self.query('SELECT count(*) FROM schedule_imports'),[(2,)])
+        self.query("INSERT INTO users (max_user_id,group_id,institution_code) SELECT 100,id,institution_code FROM groups WHERE name='ДЕМО-11'")
+        monday=future.date()
+        monday-=timedelta(days=monday.weekday())
+        for week in range(4):
+            day=monday+timedelta(days=7*week)
+            selected,unknown=lessons(ScheduleRepository(self.store).for_user(100,[day]))
+            self.assertFalse(unknown)
+            self.assertEqual(selected[0][6],'ДЕМО — ЭВМ' if week==1 else 'ДЕМО — Программирование')
+            self.assertEqual(selected[1][6],'ДЕМО — Базы данных' if week%2 else 'ДЕМО — Математика')
+        outside=ScheduleRepository(self.store).for_user(100,[monday+timedelta(days=28)])
+        self.assertIsNone(outside[0][2])
+        self.assertEqual(self.query('SELECT count(*) FROM schedule_notifications'),[(0,)])
+
     def test_demo_seed_idempotence_cleanup_and_no_outbox(self):
         monday = datetime.now(SAMARA).date()
         monday -= timedelta(days=monday.weekday())
@@ -167,9 +193,10 @@ class UXDatabaseTests(unittest.TestCase):
         self.query("INSERT INTO demo_environment VALUES ('podzemelye-demo-v1')")
         self.assertTrue(seed(self.store))
         self.assertFalse(seed(self.store))
-        self.assertEqual(self.query('SELECT count(*) FROM useful_materials'),[(32,)])
-        self.assertEqual(self.query('SELECT count(*) FROM demo_records'),[(39,)])
-        self.assertEqual(self.query('SELECT count(*) FROM useful_files'),[(1,)])
+        self.assertEqual(self.query('SELECT count(*) FROM useful_materials'), [(32,)])
+        self.assertEqual(self.query('SELECT count(*) FROM events'), [(4,)])
+        self.assertEqual(self.query('SELECT count(*) FROM demo_records'), [(40,)])
+        self.assertEqual(self.query('SELECT count(*) FROM useful_files'), [(6,)])
         for table in ('event_notifications','homework_notifications','schedule_notifications'):
             self.assertEqual(self.query('SELECT count(*) FROM ' + table),[(0,)])
         with self.store.connect() as conn:
@@ -217,6 +244,9 @@ class UXDatabaseTests(unittest.TestCase):
         self.assertEqual(HomeworkStore(self.store,11,None).due_count(now,deadline+timedelta(hours=1)),2)
         self.assertEqual(HomeworkStore(self.store,12,None).due_count(now,deadline+timedelta(hours=1)),2)
         self.assertEqual(HomeworkStore(self.store,13,None).due_count(now,deadline+timedelta(hours=1)),0)
+        self.assertEqual(len(HomeworkStore(self.store,11,None).due_list(now,deadline+timedelta(hours=1))),2)
+        self.assertEqual(len(HomeworkStore(self.store,12,None).due_list(now,deadline+timedelta(hours=1))),2)
+        self.assertEqual(HomeworkStore(self.store,13,None).due_list(now,deadline+timedelta(hours=1)),[])
 
     def test_web_views_preserve_homework_scope_and_hide_unpublished_events(self):
         from app.web import ReadViews
@@ -282,7 +312,7 @@ class UXDatabaseTests(unittest.TestCase):
             demo_main()
             demo_main()
         self.assertEqual(self.query('SELECT count(*) FROM schedule_lessons'),[(672,)])
-        self.assertEqual(self.query('SELECT count(*) FROM demo_records'),[(39,)])
+        self.assertEqual(self.query('SELECT count(*) FROM demo_records'),[(40,)])
         self.assertEqual(self.query('SELECT count(*) FROM schedule_notifications'),[(0,)])
         with patch('seed_demo.demo_database', return_value=self.store), patch('sys.argv',['seed_demo.py','--demo','--clean']):
             demo_main()
@@ -312,3 +342,43 @@ class UXDatabaseTests(unittest.TestCase):
         press('save')
         self.assertTrue(self.student.details(event)[3])
         self.assertIn('Отчёт опубликован',client.answer.call_args.kwargs['text'])
+
+    def test_bot_demo_db_matches_site_content_with_notice_and_refresh_preserves_unmarked(self):
+        from app.demo_seed import seed_events, seed_useful, refresh_site_demo
+        from app.demo_site_data import load_site
+        self.query("CREATE TABLE demo_environment (environment text PRIMARY KEY)")
+        self.query("INSERT INTO demo_environment VALUES ('podzemelye-demo-v1')")
+        unmarked_event = self.query(
+        "INSERT INTO events (title, description, starts_at, place, state) "
+        "VALUES ('ДЕМО — студенческий хакатон', 'Чужая запись', now() + interval '5 days', 'Зал', 'published') RETURNING id"
+    )[0][0]
+        with self.store.connect() as conn:
+            self.assertEqual(seed_useful(conn), 32)
+            self.assertEqual(seed_useful(conn), 0)
+            self.assertEqual(seed_events(conn), 4)
+            self.assertEqual(seed_events(conn), 0)
+            self.assertEqual(refresh_site_demo(conn), (32, 4))
+    # Непомеченное чужое событие сохранилось
+        self.assertEqual(self.query("SELECT description FROM events WHERE id = %s", (unmarked_event,)), [('Чужая запись',)])
+    # Сравнение текстов с site.json один в один
+        raw_site = load_site()['sections']
+        db_useful = dict(self.query("SELECT title, body FROM useful_materials WHERE id IN (SELECT record_id FROM demo_records WHERE kind = 'material')"))
+        for card in raw_site['useful']['cards']:
+            self.assertEqual(db_useful[card['title']], 'ДЕМО · вымышленные данные. Не справочная информация АКВТ.\n'+card['body'])
+        db_study_files = self.query(
+            "SELECT m.title, f.name FROM useful_files f JOIN useful_materials m ON m.id = f.material_id "
+            "WHERE m.id IN (SELECT record_id FROM demo_records WHERE kind = 'material') ORDER BY m.id"
+        )
+        self.assertEqual(len(db_study_files), 6)
+        self.assertTrue(all(name == 'demo-task.txt' for _, name in db_study_files))
+        db_events = {
+            row[0]: row[1:]
+            for row in self.query(
+                "SELECT title, description, report_body, report_published FROM events "
+                "WHERE id IN (SELECT record_id FROM demo_records WHERE kind = 'event')"
+            )
+        }
+        for ev in raw_site['events']['cards']:
+            self.assertEqual(db_events[ev['title']][0], ev['body'])
+        hist = raw_site['events']['history'][0]
+        self.assertEqual(db_events[hist['title']], (hist['body'], hist['report_body'], True))

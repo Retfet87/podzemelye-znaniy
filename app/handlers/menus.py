@@ -18,6 +18,7 @@ HOME = inline_keyboard([
 _PERIODS = [
     [callback_button("Сегодня", "schedule:today"), callback_button("Завтра", "schedule:tomorrow")],
     [callback_button("Неделя", "schedule:week")],
+    [callback_button("Следующая неделя", "schedule:next_week")],
     [callback_button("📆 В календарь", "calendar:week")],
 ]
 

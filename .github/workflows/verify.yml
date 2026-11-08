@@ -20,4 +20,16 @@ jobs:
       - name: Build standalone public demo
         run: python -m scripts.build_demo_site
       - name: Test without a MAX bot token
+        env:
+          DOCKER_IMAGE_ARCHIVE: ${{ runner.temp }}/podzemelye-bot.tar.gz
         run: sh scripts/check_docker.sh
+      - name: Save tested Docker image
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: podzemelye-bot-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/podzemelye-bot.tar.gz
+            ${{ runner.temp }}/podzemelye-bot.tar.gz.sha256
+          compression-level: 0
+          retention-days: 14
+          if-no-files-found: error

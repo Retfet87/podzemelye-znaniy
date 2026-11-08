@@ -57,6 +57,8 @@ class Draft:
     action: str = ""
     token: str = field(default_factory=lambda: uuid4().hex)
     touched: float = field(default_factory=monotonic)
+    date_cursor: str = ""
+    date_value: str = ""
 
     @property
     def fields(self):
@@ -157,7 +159,7 @@ class CommunityHandler(Handler):
             if tag:
                 title += " · " + TAGS[tag]
             back_btn = [] if review else [("Назад", "back")]
-            reply(title if rows else title + "\nСписок пуст.", buttons + resume + back_btn)
+            reply(title if rows else title + "\nМероприятий пока нет. Проверь список позже или открой историю.", buttons + resume + back_btn)
         elif action == "filters" and len(parts) == 1 and parts[0] in ("events", "history"):
             reply("🏷 Выбери тег", [(label, f"{parts[0]}:0:{key}") for key, label in TAGS.items()] + [("Назад", f"{parts[0]}:0")])
         elif action == "event_new" and not parts and db.scopes():
@@ -268,7 +270,7 @@ class CommunityHandler(Handler):
                         for group, name in db.scopes()]
             empty_note = ""
             if not rows and category != "teachers":
-                empty_note = "\nСписок пуст."
+                empty_note = "\nМатериалы пока не добавлены."
             elif not rows and category == "teachers":
                 empty_note = "\nВыбери список из расписания или добавь карточку вручную."
             reply(CATEGORIES[category] + empty_note, buttons + [("К категориям", "useful")])
@@ -377,6 +379,11 @@ class CommunityHandler(Handler):
                        button("Исправить поля", "restart")]
         else:
             key = draft.fields[draft.step]
+            if key == "starts_at":
+                from app.services.date_picker import keyboard
+                text, attachments = keyboard(draft, "community:")
+                reply(text, custom_attachments=attachments)
+                return
             text = PROMPTS[key]
             buttons = []
             if key == "tags":
@@ -454,6 +461,16 @@ class CommunityHandler(Handler):
             raise ValueError("Используй кнопки предпросмотра.")
         else:
             key = draft.fields[draft.step]
+            if key == "starts_at":
+                from app.services.date_picker import choose
+                selected = choose(draft, action, text=text)
+                if selected is not None:
+                    done, value = selected
+                    if done:
+                        draft.starts_at = value
+                    draft.advance(stay=not done)
+                    self.prompt(reply, draft)
+                    return
             if key == "tags" and action and action.startswith("tag:"):
                 tag = action.removeprefix("tag:")
                 if tag not in TAGS:

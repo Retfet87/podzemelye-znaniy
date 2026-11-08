@@ -109,7 +109,7 @@ class ScheduleUITests(unittest.TestCase):
         rows = [(MONDAY, "ИБ-11", 1, None, None, None, None, None, None, None)]
         self.assertIn("Занятий нет", format_schedule(rows))
         rows = [(MONDAY, "ИБ-11", None, None, None, None, None, None, None, None)]
-        self.assertIn("не загружено", format_schedule(rows))
+        self.assertIn("пока не опубликовано", format_schedule(rows))
 
     def test_parity_uses_anchor_and_exposes_uncertainty_without_it(self):
         def rows(anchor):

@@ -46,6 +46,27 @@ class FormDraftTests(unittest.TestCase):
         router.dispatch(callback_update('hw:resume',user_id=11))
         self.assertFalse(any(h.drafts and 11 in h.drafts for h in router.handlers))
 
+    def test_date_time_picker_survives_restart_and_old_button_cannot_publish(self):
+        draft=Draft(self.groups['А-01'],False,step='deadline',subject='История',body='Текст')
+        self.persist(11,draft)
+        router=build_router(Deps.create(Mock(),self.store,90))
+        old='hw:d:'+draft.token+':dt:offset:1'
+        router.dispatch(callback_update(old,user_id=11))
+        handler=next(h for h in router.handlers if isinstance(h,HomeworkHandler))
+        chosen=handler.drafts[11]
+        self.assertTrue(chosen.date_value)
+        token=chosen.token
+        router=build_router(Deps.create(Mock(),self.store,90))
+        router.dispatch(callback_update('hw:d:'+token+':dt:time:18:00',user_id=11))
+        handler=next(h for h in router.handlers if isinstance(h,HomeworkHandler))
+        self.assertEqual(handler.drafts[11].step,'files')
+        self.assertEqual(handler.drafts[11].deadline.hour,18)
+        router.dispatch(callback_update(old,user_id=11))
+        with self.store.connect() as conn:
+            self.assertEqual(conn.execute('SELECT count(*) FROM homework').fetchone(),(0,))
+        router.dispatch(callback_update('hw:d:'+token+':dt:time:18:00',user_id=12))
+        self.assertNotIn(12,handler.drafts)
+
     def test_expiry_and_only_json_not_pickle(self):
         router=self.persist(11,Draft(self.groups['А-01'],False))
         with self.store.connect() as conn:
