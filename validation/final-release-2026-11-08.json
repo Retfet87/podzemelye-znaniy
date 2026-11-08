@@ -1,0 +1,78 @@
+{
+  "validated_code_commit": "bf91b921cad77cd8a245b99d65f93f8ec97fd0fb",
+  "branch": "review/final-demo-2026-11-08",
+  "pr": "https://github.com/Retfet87/podzemelye-znaniy/pull/2",
+  "native": {
+    "total": 210,
+    "passed": 209,
+    "skipped": 1,
+    "failed": 0,
+    "seconds": 11.664,
+    "skip_reason": "ffmpeg missing; MP4 passed in Docker",
+    "real_public_xls": true,
+    "smoke_passed": 1,
+    "acceptance_rerun_passed": 8,
+    "optimized_python_private_fixture_rejected": true
+  },
+  "offline": {
+    "total": 210,
+    "passed": 124,
+    "skipped": 86,
+    "failed": 0,
+    "seconds": 1.18
+  },
+  "frontend": {
+    "passed": 8,
+    "skipped": 0,
+    "failed": 0
+  },
+  "docker": {
+    "total": 210,
+    "passed": 206,
+    "skipped": 4,
+    "failed": 0,
+    "seconds": 17.342,
+    "skip_reason": "AKVT_TEST_XLS not supplied; all four passed natively",
+    "run_url": "https://github.com/Retfet87/podzemelye-znaniy/actions/runs/42459696211",
+    "pr_run_url": "https://github.com/Retfet87/podzemelye-znaniy/actions/runs/42459699356",
+    "smoke_passed": 1,
+    "container_recreation": true,
+    "saved_form_resumed": true,
+    "one_shot_restore": true,
+    "scheduled_restore": true
+  },
+  "site": {
+    "url": "https://podzemelye-znaniy-demo.chipperloon.chatgpt.site",
+    "version": 1,
+    "access": "public",
+    "owner_approved": true,
+    "deployment": "succeeded",
+    "anonymous_html_status": 200,
+    "anonymous_json_status": 200,
+    "useful_cards": 32,
+    "max_required": false,
+    "database_connected": false,
+    "source_commit": "0ecba81c1a86d29dc79a551f13366c300d002e82"
+  },
+  "browser": {
+    "widths_checked": [
+      320,
+      1280
+    ],
+    "horizontal_overflow": false,
+    "light_dark": true,
+    "video_playback": true,
+    "video_duration": 5.055,
+    "console_errors": 0,
+    "real_ios_android": false
+  },
+  "new_migrations": 0,
+  "schema_versions": 7,
+  "real_max_called": false,
+  "production_db_changed": false,
+  "bot_deployed": false,
+  "merge_performed": false,
+  "force_push_performed": false,
+  "system_software_installed": false,
+  "old_backups_deleted": false
+}
