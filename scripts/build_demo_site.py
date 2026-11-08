@@ -14,23 +14,26 @@ FORBIDDEN = {'max_user_id', 'user_id', 'initData', 'password', 'token', 'DATABAS
 
 def dataset():
     data = json.loads((ROOT / 'fixtures/demo/site.json').read_text())
-    assert data['demo'] is True and set(data['sections']) == {'schedule','homework','events','useful'}
+    def require(condition, message='Invalid public demo fixture'):
+        if not condition:
+            raise ValueError(message)
+    require(data['demo'] is True and set(data['sections']) == {'schedule','homework','events','useful'})
     def walk(value):
         if isinstance(value, dict):
-            assert not set(value) & FORBIDDEN, 'Private fields in public fixture'
+            require(not set(value) & FORBIDDEN, 'Private fields in public fixture')
             for item in value.values(): walk(item)
         elif isinstance(value, list):
             for item in value: walk(item)
         elif isinstance(value, str):
-            assert 'postgresql://' not in value and 'X-Max-Init-Data' not in value
+            require('postgresql://' not in value and 'X-Max-Init-Data' not in value)
     walk(data)
     for section in data['sections'].values():
-        assert section['demo'] is True and section['cards']
+        require(section['demo'] is True and bool(section['cards']))
         for card in section['cards'] + section.get('history', []):
-            assert card['title'].startswith('ДЕМО')
+            require(card['title'].startswith('ДЕМО'))
             for media in card.get('media', []):
-                assert media['src'] in ('./assets/dungeon.png', './assets/demo-flower.mp4')
-    assert len(data['sections']['useful']['cards']) == 32
+                require(media['src'] in ('./assets/dungeon.png', './assets/demo-flower.mp4'))
+    require(len(data['sections']['useful']['cards']) == 32)
     return data
 
 

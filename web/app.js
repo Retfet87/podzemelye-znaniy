@@ -356,10 +356,10 @@
     var version = ++requestVersion;
     if (pendingRequest) pendingRequest.abort();
     pendingRequest = new AbortController();
-    syncNativeBackButton();
     state.endpoint = endpoint;
     state.section = sectionName;
     state.selectedCard = null;
+    syncNativeBackButton();
     state.subfilter = sectionName === "events" ? "upcoming" : "all";
     showLoading();
 

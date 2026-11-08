@@ -2,6 +2,9 @@
 import json
 from pathlib import Path
 import tempfile
+import os
+import subprocess
+import sys
 import unittest
 from unittest.mock import Mock, patch
 from datetime import datetime, timedelta
@@ -68,6 +71,24 @@ class PublicProductTests(unittest.TestCase):
             self.assertTrue((output/'assets/demo-week.ics').read_bytes().endswith(b'END:VCALENDAR\r\n'))
             self.assertFalse(list(output.rglob('.env*')))
             self.assertEqual(len(list(output.rglob('*.json'))),1)
+
+    def test_public_dataset_validation_rejects_private_fields_even_in_optimized_python(self):
+        from scripts import build_demo_site as builder
+        data=dataset()
+        data['sections']['homework']['cards'][0]['max_user_id']=123
+        with patch.object(builder.json,'loads',return_value=data),self.assertRaises(ValueError):
+            builder.dataset()
+        code = '''from scripts import build_demo_site as b
+from unittest.mock import patch
+d=b.dataset()
+d['sections']['homework']['cards'][0]['max_user_id']=123
+with patch.object(b.json,'loads',return_value=d):
+ try:b.dataset()
+ except ValueError:raise SystemExit(0)
+ raise SystemExit(1)
+'''
+        result=subprocess.run([sys.executable,'-O','-c',code],cwd=ROOT,env={'PATH':os.defpath},capture_output=True)
+        self.assertEqual(result.returncode,0)
 
     def test_build_refuses_unknown_output_files_and_source_directory(self):
         with tempfile.TemporaryDirectory() as tmp:
