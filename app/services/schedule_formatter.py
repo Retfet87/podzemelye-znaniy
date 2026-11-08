@@ -1,4 +1,5 @@
 """Форматирование расписания для сообщений MAX."""
+
 from datetime import datetime, timedelta
 from itertools import groupby
 
@@ -6,10 +7,22 @@ from app.timeutil import SAMARA
 
 # Расписание звонков АКВТ на 2026–2027 учебный год.
 BELLS = (
-    "08:30–10:05", "10:15–11:50", "12:20–13:55",
-    "14:10–15:45", "15:55–17:30", "17:40–19:15",
+    "08:30–10:05",
+    "10:15–11:50",
+    "12:20–13:55",
+    "14:10–15:45",
+    "15:55–17:30",
+    "17:40–19:15",
 )
-DAYS = ("Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье")
+DAYS = (
+    "Понедельник",
+    "Вторник",
+    "Среда",
+    "Четверг",
+    "Пятница",
+    "Суббота",
+    "Воскресенье",
+)
 PARITY = {"numerator": "числитель", "denominator": "знаменатель"}
 
 
@@ -19,9 +32,14 @@ PERIODS = {"today", "tomorrow", "week", "next_week"}
 def requested_days(period, today=None):
     today = today or datetime.now(SAMARA).date()
     if period in ("week", "next_week"):
-        monday = today - timedelta(days=today.weekday()) + timedelta(days=7 if period == "next_week" else 0)
+        monday = (
+            today
+            - timedelta(days=today.weekday())
+            + timedelta(days=7 if period == "next_week" else 0)
+        )
         return [monday + timedelta(days=i) for i in range(7)]
-    return [today + timedelta(days=period == "tomorrow")]
+    offset = 1 if period == "tomorrow" else 0
+    return [today + timedelta(days=offset)]
 
 
 def format_schedule(rows):
@@ -40,14 +58,18 @@ def format_schedule(rows):
             current_parity = "denominator" if weeks % 2 else "numerator"
         lines = []
         for _, _, _, _, pair, parity, subject, teacher, room, note in entries:
-            if pair is None or (current_parity and parity not in ("all", current_parity)):
+            if pair is None or (
+                current_parity and parity not in ("all", current_parity)
+            ):
                 continue
             label = ""
             if parity != "all" and current_parity is None:
                 unknown_parity = True
                 label = f" ({PARITY[parity]})"
-            line = (f"{pair}. {BELLS[pair - 1]} — {subject}{label}\n"
-                    f"{teacher or 'Преподаватель не указан'} · {room or 'Плавающий кабинет'}")
+            line = (
+                f"{pair}. {BELLS[pair - 1]} — {subject}{label}\n"
+                f"{teacher or 'Преподаватель не указан'} · {room or 'Плавающий кабинет'}"
+            )
             if note:
                 line += f" · {note}"
             lines.append(line)

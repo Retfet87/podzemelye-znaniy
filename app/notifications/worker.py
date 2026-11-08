@@ -1,4 +1,5 @@
-"""Надёжная доставка уведомлений в MAX. Сессионная блокировка сериализует рабочие потоки."""
+"""Надёжная доставка уведомлений в MAX. Сессионная блокировка согласует всех отправителей."""
+
 import logging
 
 import psycopg
@@ -15,13 +16,15 @@ logger = logging.getLogger(__name__)
 
 def deliver_one(store, send, max_error, *, homework=True, schedule=True, events=False):
     with store.connect() as conn:
-        # Demo data must never enter delivery, even with misconfigured flags.
+        # DEMO нельзя отправлять даже при ошибочно включённых флагах рассылки.
         if conn.execute("SELECT to_regclass('demo_environment')").fetchone()[0]:
             return False
-        if not conn.execute("SELECT pg_try_advisory_lock(%s)", (NOTIFICATION_WORKER_LOCK,)).fetchone()[0]:
+        if not conn.execute(
+            "SELECT pg_try_advisory_lock(%s)", (NOTIFICATION_WORKER_LOCK,)
+        ).fetchone()[0]:
             return False
         if homework:
-            # Hold through delivery so deletion, edits and preference updates serialize with sends.
+            # Держим блокировку до отправки, согласуя её с удалением, правкой и настройками.
             conn.execute("SELECT pg_advisory_lock(%s)", (HOMEWORK_LOCK,))
             homework_queue.prepare(conn)
         if events:
@@ -29,48 +32,89 @@ def deliver_one(store, send, max_error, *, homework=True, schedule=True, events=
             event_queue.prepare(conn)
         if schedule:
             schedule_queue.expire(conn)
-        if not conn.execute("SELECT next_send <= now() FROM schedule_notification_rate").fetchone()[0]:
+        if not conn.execute(
+            "SELECT next_send <= now() FROM schedule_notification_rate"
+        ).fetchone()[0]:
             return False
         shared = schedule_queue.next_job(conn) if schedule else None
         task = homework_queue.next_job(conn) if homework else None
         event = event_queue.next_job(conn) if events else None
-        if event and (not task or event[3] <= task[3]) and (not shared or event[3] <= shared[5]):
+        candidates = []
+        if event:
+            candidates.append((event[3], 0, "event"))
+        if shared:
+            candidates.append((shared[5], 1, "schedule"))
+        if task:
+            candidates.append((task[3], 2, "homework"))
+        if not candidates:
+            return False
+        # При равном времени сохраняем прежний порядок: событие, расписание, задание.
+        _, _, queue = min(candidates)
+        if queue == "event":
             job, user, attempts, _, body, eligible = event
             table = "event_notifications"
             condition = sql.SQL("id = %s")
             key = (job,)
             skip_reason = "ineligible"
-        elif task and (not shared or task[3] < shared[5]):
+        elif queue == "homework":
             job, user, attempts, _, subject, deadline, kind, group, eligible = task
             table = "homework_notifications"
             condition = sql.SQL("id = %s")
             key = (job,)
             body = homework_queue.notification_body(subject, deadline, kind, group)
             skip_reason = "ineligible"
-        elif shared:
+        else:
             version, user, body, attempts, eligible, _ = shared
             table = "schedule_notifications"
             condition = sql.SQL("import_id = %s AND user_id = %s")
             key = (version, user)
             skip_reason = "group_changed"
-        else:
-            return False
-        return send_job(conn, send, max_error, table, condition, key, user, body, attempts,
-                        eligible, skip_reason)
+        return send_job(
+            conn,
+            send,
+            max_error,
+            table,
+            condition,
+            key,
+            user,
+            body,
+            attempts,
+            eligible,
+            skip_reason,
+        )
 
 
-def send_job(conn, send, max_error, table, condition, key, user, body, attempts, eligible, skip_reason):
+def send_job(
+    conn,
+    send,
+    max_error,
+    table,
+    condition,
+    key,
+    user,
+    body,
+    attempts,
+    eligible,
+    skip_reason,
+):
     def update(fields):
-        return sql.SQL("UPDATE {} SET {} WHERE {}").format(sql.Identifier(table), sql.SQL(fields), condition)
+        return sql.SQL("UPDATE {} SET {} WHERE {}").format(
+            sql.Identifier(table), sql.SQL(fields), condition
+        )
 
     if not eligible:
         conn.execute(update("status = 'skipped', last_error = %s"), (skip_reason, *key))
         return True
-    conn.execute(update(
-        """status = 'sending', attempts = attempts + 1, last_attempt = clock_timestamp(),
+    conn.execute(
+        update(
+            """status = 'sending', attempts = attempts + 1, last_attempt = clock_timestamp(),
            next_attempt = clock_timestamp() + interval '2 minutes'"""
-    ), key)
-    conn.execute("UPDATE schedule_notification_rate SET next_send = clock_timestamp() + interval '1 second'")
+        ),
+        key,
+    )
+    conn.execute(
+        "UPDATE schedule_notification_rate SET next_send = clock_timestamp() + interval '1 second'"
+    )
     conn.commit()
 
     status, code, delay = "sent", None, 0
@@ -78,7 +122,11 @@ def send_job(conn, send, max_error, table, condition, key, user, body, attempts,
         send({"user_id": user}, body)
     except max_error as error:
         code = f"http_{error.status}" if error.status else "transport_or_response"
-        status = "pending" if (error.retryable or error.status == 401) and attempts + 1 < MAX_ATTEMPTS else "failed"
+        status = (
+            "pending"
+            if (error.retryable or error.status == 401) and attempts + 1 < MAX_ATTEMPTS
+            else "failed"
+        )
         delay = max(30 * 2**attempts, error.retry_after or 0)
         if error.status in (401, 429):
             conn.execute(
@@ -97,16 +145,33 @@ def send_job(conn, send, max_error, table, condition, key, user, body, attempts,
     return True
 
 
-def work_notifications(store, send, max_error, stop, *, homework=True, schedule=True, events=False, health=None):
+def work_notifications(
+    store,
+    send,
+    max_error,
+    stop,
+    *,
+    homework=True,
+    schedule=True,
+    events=False,
+    health=None,
+):
     while not stop.is_set():
         try:
-            worked = deliver_one(store, send, max_error, homework=homework, schedule=schedule, events=events)
+            worked = deliver_one(
+                store,
+                send,
+                max_error,
+                homework=homework,
+                schedule=schedule,
+                events=events,
+            )
         except psycopg.Error:
             logger.warning("PostgreSQL: очередь уведомлений временно недоступна.")
             worked = False
         except Exception:
-            logger.error('Notification worker stopped after unexpected failure')
+            logger.error("Notification worker stopped after unexpected failure")
             if health is not None:
-                health.critical('notification_worker_failure')
+                health.critical("notification_worker_failure")
             return
         stop.wait(1 if worked else 3)
