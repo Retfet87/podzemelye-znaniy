@@ -109,17 +109,19 @@ class HomeworkHandler(Handler):
                     self.role_prompt(reply, draft)
                 else:
                     self.prompt(reply, draft)
-            elif payload == "prefs" or (payload and payload.startswith("pref:")):
-                if payload != "prefs":
-                    _, category, flag = payload.split(":")
+            elif payload in ("prefs", "prefs:home") or (payload and payload.startswith("pref:")):
+                from_home = payload.endswith(":home")
+                clean_payload = payload.removesuffix(":home")
+                if clean_payload != "prefs":
+                    _, category, flag = clean_payload.split(":")
                     if category not in CATEGORIES or flag not in ("0", "1"):
                         raise ValueError("Кнопка недействительна.")
                     db.set_preference(category, flag == "1")
                 prefs = db.preferences()
                 reply("Уведомления о заданиях", [
                     (f"{label} · {'вкл.' if prefs.get(key, True) else 'выкл.'}",
-                     f"pref:{key}:{int(not prefs.get(key, True))}") for key, label in CATEGORIES.items()
-                ] + [("Назад", "open")])
+                     f"pref:{key}:{int(not prefs.get(key, True))}" + (":home" if from_home else "")) for key, label in CATEGORIES.items()
+                ] + ([] if from_home else [("Назад", "open")]))
             elif payload and not payload.startswith("d:"):
                 self.navigate(client, db, user, payload, reply)
             elif draft:

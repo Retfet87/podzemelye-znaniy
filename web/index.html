@@ -1,3 +1,104 @@
-<!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><title>Подземелье знаний</title><link rel="stylesheet" href="/style.css"><script src="https://st.max.ru/js/max-web-app.js" defer></script><script src="/app.js" defer></script></head>
-<body><main><header><span class="eyebrow">ВСЁ ДЛЯ УЧЁБЫ</span><h1>Подземелье знаний</h1><p id="group">Расписание, задания и события твоей группы</p><strong id="demo" hidden>ДЕМО · вымышленные данные</strong></header><nav aria-label="Разделы"><button data-path="schedule" aria-current="page">Расписание</button><button data-path="homework">Задания</button><button data-path="events">События</button></nav><section aria-live="polite" aria-busy="true" id="content"><p>Загружаем данные…</p></section><button id="retry" hidden>Попробовать ещё раз</button><footer>Полные списки, выбор группы и добавление заданий доступны в чате с ботом.</footer></main></body></html>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Подземелье знаний</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="https://st.max.ru/js/max-web-app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="header-top">
+        <div class="brand">
+          <span class="brand-icon" aria-hidden="true">🏰</span>
+          <div>
+            <h1 class="brand-title">Подземелье знаний</h1>
+            <p id="group-badge" class="brand-subtitle">Загрузка профиля…</p>
+          </div>
+        </div>
+        <span id="demo-badge" class="pill pill-demo" hidden>ДЕМО</span>
+      </div>
+
+      <section id="today-banner" class="today-banner" hidden>
+        <p id="today-text" class="today-text"></p>
+      </section>
+
+      <nav id="main-tabs" class="tabs" aria-label="Разделы мини-приложения">
+        <button type="button" class="tab-button is-active" data-endpoint="/api/schedule" data-section="schedule">
+          📅 Расписание
+        </button>
+        <button type="button" class="tab-button" data-endpoint="/api/homework" data-section="homework">
+          📝 Задания
+        </button>
+        <button type="button" class="tab-button" data-endpoint="/api/events" data-section="events">
+          🎉 События
+        </button>
+        <button type="button" class="tab-button" data-endpoint="/api/useful" data-section="useful">
+          📚 Полезное
+        </button>
+      </nav>
+
+      <div id="subfilters" class="subfilters" hidden></div>
+    </header>
+
+    <main class="app-main">
+      <!-- Состояние загрузки -->
+      <section id="state-loading" class="state-card" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="state-title">Загружаем данные…</p>
+        <p class="state-subtitle">Проверяем подпись сессии MAX и синхронизируем расписание</p>
+      </section>
+
+      <!-- Состояние ошибки / истёкшей сессии -->
+      <section id="state-error" class="state-card state-error" hidden aria-live="assertive">
+        <p id="error-title" class="state-title">Не удалось загрузить раздел</p>
+        <p id="error-message" class="state-subtitle"></p>
+        <button type="button" id="retry-button" class="action-button">Повторить запрос</button>
+      </section>
+
+      <!-- Экран списка карточек -->
+      <section id="view-list" class="view-list" hidden>
+        <div id="cards-container" class="cards-list"></div>
+      </section>
+
+      <!-- Экран подробной карточки (задание / мероприятие / отчёт / полезный материал) -->
+      <section id="view-detail" class="view-detail" hidden>
+        <div class="detail-nav">
+          <button type="button" id="back-button" class="back-button">⬅️ Назад к списку</button>
+        </div>
+        <article class="detail-card">
+          <div class="detail-header">
+            <span id="detail-badge" class="pill" hidden></span>
+            <h2 id="detail-title" class="detail-title"></h2>
+            <p id="detail-subtitle" class="detail-subtitle"></p>
+          </div>
+          <p id="detail-meta" class="detail-meta" hidden></p>
+          <div id="detail-tags" class="tags-row" hidden></div>
+          <div id="detail-body" class="detail-body"></div>
+
+          <section id="detail-report-box" class="report-box" hidden>
+            <h3 class="report-heading">📸 Итоги мероприятия</h3>
+            <p id="detail-report-body" class="detail-body"></p>
+            <a id="detail-report-link" class="external-link" href="#" target="_blank" rel="noopener noreferrer" hidden>
+              Открыть ссылку к отчёту ↗
+            </a>
+          </section>
+
+          <a id="detail-link" class="external-link" href="#" target="_blank" rel="noopener noreferrer" hidden>
+            Перейти по ссылке материала ↗
+          </a>
+
+          <section id="detail-files-box" class="files-box" hidden>
+            <h3 class="files-heading">📎 Прикреплённые файлы</h3>
+            <ul id="detail-files-list" class="files-list"></ul>
+            <p class="files-hint">Скачивание вложений доступно в личном чате с ботом в MAX.</p>
+          </section>
+        </article>
+      </section>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

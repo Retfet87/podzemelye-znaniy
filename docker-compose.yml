@@ -36,6 +36,7 @@ services:
     environment:
       <<: *database
       DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-0}
+      PUBLIC_DEMO_SITE_URL: ${PUBLIC_DEMO_SITE_URL:-}
       MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
       MAX_SUPER_ADMIN_ID: ${MAX_SUPER_ADMIN_ID:-}
       MAX_CA_FILE: certificates/russian_trusted_root_ca.pem

@@ -37,3 +37,8 @@
 !web/*.css
 
 !scripts/test_isolated.py
+
+!demo-site/
+!demo-site/**
+!scripts/build_demo_site.py
+!scripts/test_frontend.mjs
