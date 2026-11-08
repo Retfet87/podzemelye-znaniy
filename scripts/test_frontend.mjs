@@ -57,9 +57,9 @@ await test('four sections, useful category and past report are navigable',async(
 });
 await test('demo signup remains local, toggles cleanly and survives section navigation',async()=>{
  const ui=app();resolve(ui.pending[0]);await flush();ui.select('events');await flush();
- ui.get('cards-container').children[0].listeners.click();ui.get('join-button').onclick();assert.match(ui.get('join-button').textContent,/Ты идёшь/);
- ui.select('homework');await flush();ui.select('events');await flush();ui.get('cards-container').children[0].listeners.click();assert.match(ui.get('join-button').textContent,/Ты идёшь/);
- ui.get('join-button').onclick();assert.match(ui.get('join-button').textContent,/Пойду/);assert.equal(ui.pending.length,1);
+ ui.get('cards-container').children[0].listeners.click();ui.get('join-button').onclick();assert.match(ui.get('join-button').textContent,/Отменить пробную/);
+ ui.select('homework');await flush();ui.select('events');await flush();ui.get('cards-container').children[0].listeners.click();assert.match(ui.get('join-button').textContent,/Отменить пробную/);
+ ui.get('join-button').onclick();assert.match(ui.get('join-button').textContent,/Записаться/);assert.equal(ui.pending.length,1);
 });
 await test('empty dataset has honest empty state',async()=>{
  const ui=app();const empty=structuredClone(dataset);empty.sections.schedule.cards=[];resolve(ui.pending[0],empty);await flush();

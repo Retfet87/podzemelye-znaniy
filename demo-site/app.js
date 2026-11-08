@@ -40,6 +40,11 @@
   var detailFilesBox = document.getElementById("detail-files-box");
   var detailFilesList = document.getElementById("detail-files-list");
 
+  function displayTitle(value) {
+    var title = (value || "").replace(/^ДЕМО\s*[—·-]\s*/, "");
+    return title.charAt(0).toLocaleUpperCase("ru") + title.slice(1);
+  }
+
   function clearChildren(node) {
     while (node.firstChild) {
       node.removeChild(node.firstChild);
@@ -60,7 +65,7 @@
     stateError.hidden = false;
 
     errorTitle.textContent = "Не удалось загрузить материалы";
-    errorMessage.textContent = message || "Проверь соединение и попробуй ещё раз. Вход в аккаунт не требуется.";
+    errorMessage.textContent = message || "Проверьте соединение и повторите попытку. Вход не требуется.";
     retryButton.hidden = false;
   }
 
@@ -91,7 +96,7 @@
       detailBadge.hidden = true;
     }
 
-    detailTitle.textContent = card.title || "";
+    detailTitle.textContent = displayTitle(card.title);
     detailTitle.focus();
     detailSubtitle.textContent = card.subtitle || "";
 
@@ -126,20 +131,20 @@
         el.poster = "./assets/dungeon.png";
       } else { el.alt = media.alt || "ДЕМО — иллюстрация мероприятия"; el.loading = "lazy"; }
       el.addEventListener("error", function(){
-        var hint = document.createElement("p"); hint.textContent = "Медиа не загрузилось. Попробуй открыть карточку ещё раз.";
+        var hint = document.createElement("p"); hint.textContent = "Медиа не загрузилось. Откройте карточку ещё раз.";
         mediaBox.appendChild(hint);
       });
       mediaBox.appendChild(el);
     });
     var joinButton = document.getElementById("join-button");
     joinButton.hidden = !card.joinable;
-    joinButton.textContent = card.joined ? "✓ Ты идёшь · отменить" : "Пойду · попробовать";
+    joinButton.textContent = card.joined ? "Отменить пробную запись" : "Записаться в примере";
     joinButton.onclick = function(){
       card.joined = !card.joined;
       card.count = (card.count || 0) + (card.joined ? 1 : -1);
-      card.badge = "ДЕМО · " + card.count + " участников";
+      card.badge = card.joined ? "Вы записаны (демо)" : "Запись открыта";
       document.getElementById("demo-action-status").textContent = card.joined ? "ДЕМО — запись только в этой вкладке. Уведомления не отправляются." : "ДЕМО — участие отменено в этой вкладке.";
-      joinButton.textContent = card.joined ? "✓ Ты идёшь · отменить" : "Пойду · попробовать";
+      joinButton.textContent = card.joined ? "Отменить пробную запись" : "Записаться в примере";
       detailBadge.textContent = card.badge;
     };
     document.getElementById("demo-action-status").textContent = "";
@@ -170,7 +175,7 @@
         var li = document.createElement("li");
         li.className = "file-item";
         var link = document.createElement("a");
-        link.textContent = "📄 " + fname; link.href = "./assets/demo-task.txt"; link.download = "demo-task.txt";
+        link.textContent = fname; link.href = "./assets/demo-task.txt"; link.download = "demo-task.txt";
         li.appendChild(link);
         detailFilesList.appendChild(li);
       });
@@ -187,8 +192,8 @@
     if (state.section === "events") {
       subfilters.hidden = false;
       [
-        { key: "upcoming", label: "📅 Предстоящие" },
-        { key: "history", label: "📸 Как это было" }
+        { key: "upcoming", label: " Предстоящие" },
+        { key: "history", label: " Как это было" }
       ].forEach(function (item) {
         var btn = document.createElement("button");
         btn.type = "button";
@@ -283,7 +288,7 @@
 
       var title = document.createElement("h2");
       title.className = "item-card-title";
-      title.textContent = card.title || "";
+      title.textContent = displayTitle(card.title);
       topRow.appendChild(title);
 
       if (card.badge) {
@@ -294,11 +299,7 @@
       }
 
       article.appendChild(topRow);
-      if (card.image) {
-        var image = document.createElement("img"); image.src = card.image;
-        image.alt = "ДЕМО — иллюстрация мероприятия"; image.className = "card-image"; image.loading = "lazy";
-        article.appendChild(image);
-      }
+
 
       if (card.subtitle) {
         var sub = document.createElement("p");
@@ -316,7 +317,7 @@
       footer.className = "item-card-footer";
       var openHint = document.createElement("span");
       openHint.className = "open-hint";
-      openHint.textContent = "Подробнее →";
+      openHint.textContent = "Подробнее";
       footer.appendChild(openHint);
       article.appendChild(footer);
 
@@ -366,6 +367,14 @@
   var demoDataset = null;
 
   function loadSection(endpoint, sectionName) {
+    var labels = {
+      schedule: ["Расписание", "Время занятий, предметы и изменения."],
+      homework: ["Задания", "Общие задания и личные учебные примеры."],
+      events: ["Мероприятия", "Предстоящие события и опубликованные итоги."],
+      useful: ["Полезное", "Контакты, кабинеты и учебные материалы."]
+    };
+    document.getElementById("section-title").textContent = labels[sectionName][0];
+    document.getElementById("section-description").textContent = labels[sectionName][1];
     var version = ++requestVersion;
     if (pendingRequest) pendingRequest.abort();
     pendingRequest = new AbortController();
@@ -399,7 +408,7 @@
       })
       .catch(function (error) {
         if (version !== requestVersion || error.name === "AbortError") return;
-        showError(503, "Не удалось связаться с сервером. Проверь подключение к сети.");
+        showError(503, "Не удалось связаться с сервером. Проверьте подключение к сети.");
       });
   }
 
@@ -429,7 +438,7 @@
     var dark = document.documentElement.dataset.theme === "dark" ||
       (!document.documentElement.dataset.theme && window.matchMedia("(prefers-color-scheme: dark)").matches);
     document.documentElement.dataset.theme = dark ? "light" : "dark";
-    this.textContent = dark ? "☾ Тёмная тема" : "☀ Светлая тема";
+    this.textContent = dark ? "Тёмная тема" : "Светлая тема";
   });
   document.addEventListener("keydown", function(event){ if(event.key === "Escape" && state.selectedCard) closeDetailView(); });
   loadSection(state.endpoint, state.section);

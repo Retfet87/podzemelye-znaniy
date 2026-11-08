@@ -3,59 +3,49 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Подземелье знаний: демонстрация образовательного помощника. Расписание, задания, события и полезные материалы. Только вымышленные данные.">
+  <meta name="description" content="Демонстрация образовательного сервиса «Подземелье знаний»: расписание, задания, мероприятия и полезные материалы.">
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
-  <title>Подземелье знаний · ДЕМО</title>
+  <title>Подземелье знаний — демонстрация</title>
   <link rel="stylesheet" href="./style.css">
   <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
 </head>
 <body>
   <div class="app-shell">
     <header class="app-header">
-      <div class="header-top">
-        <a href="./" class="brand" aria-label="Подземелье знаний — главная">
-          <span class="brand-icon" aria-hidden="true">✦</span>
-          <span><strong class="brand-title">Подземелье знаний</strong><span class="brand-subtitle">Меньше поисков. Больше знаний.</span></span>
-        </a>
-        <button id="theme-toggle" type="button" class="theme-toggle">☾ Сменить тему</button>
-      </div>
-      <section class="hero">
-        <div class="hero-copy">
-          <span id="demo-badge" class="pill pill-demo">ДЕМО · ХАКАТОН 2026</span>
-          <h1>Твой учебный день,<br><span>без лишних поисков.</span></h1>
-          <p>Пары, задания и события — в одном месте.<br>Освободи время для того, что интересно тебе.</p>
-          <div class="hero-actions"><a href="#main-tabs" class="action-button">Посмотреть возможности ↗</a><a class="secondary-button" href="./assets/demo-week.ics" download>📆 Календарь ДЕМО</a></div>
-        </div>
-        <figure class="hero-art"><img src="./assets/dungeon.png" alt="Иллюстрация: уютное подземелье, книги и ноутбук" width="1536" height="1024"><figcaption>У каждого знания — своя открытая дверь.</figcaption></figure>
-      </section>
-      <div class="demo-notice"><span class="status-dot"></span><span>Открытая демонстрация. Все люди, задания и события вымышлены. Данные студентов не используются.</span></div>
-      <div class="context-line"><strong id="group-badge">ДЕМО · группа ДЕМО-11</strong><span>АКВТ · пример учебной недели 9–14 ноября</span></div>
-      <section id="today-banner" class="today-banner" hidden><p id="today-text" class="today-text"></p></section>
-      <nav id="main-tabs" class="tabs" aria-label="Разделы сайта">
-        <button type="button" class="tab-button is-active" data-endpoint="schedule" data-section="schedule" aria-pressed="true"><span>📅</span> Расписание</button>
-        <button type="button" class="tab-button" data-endpoint="homework" data-section="homework" aria-pressed="false"><span>📝</span> Задания</button>
-        <button type="button" class="tab-button" data-endpoint="events" data-section="events" aria-pressed="false"><span>🎉</span> События</button>
-        <button type="button" class="tab-button" data-endpoint="useful" data-section="useful" aria-pressed="false"><span>📚</span> Полезное</button>
-      </nav>
-      <div id="subfilters" class="subfilters" hidden></div>
+      <a href="./" class="brand" aria-label="Подземелье знаний — главная">Подземелье знаний</a>
+      <button id="theme-toggle" type="button" class="theme-toggle">Сменить тему</button>
     </header>
+    <div class="demo-notice"><span id="demo-badge" class="demo-label">ДЕМО</span><span>Все сведения вымышлены. Вход не нужен.</span></div>
+    <section class="intro" aria-label="Учебная группа">
+      <div><p class="eyebrow">Учебный помощник</p><h1>Учебная неделя</h1><p id="group-badge" class="group-label">Группа ДЕМО-11</p><p class="period-label">АКВТ · пример на 9–14 ноября 2026 · время Самары</p></div>
+      <a class="secondary-button" href="./assets/demo-week.ics" download>Скачать календарь .ics</a>
+    </section>
+    <section id="today-banner" class="today-banner" hidden><p id="today-text" class="today-text"></p></section>
+    <nav id="main-tabs" class="tabs" aria-label="Разделы сайта">
+      <button type="button" class="tab-button is-active" data-endpoint="schedule" data-section="schedule" aria-pressed="true">Расписание</button>
+      <button type="button" class="tab-button" data-endpoint="homework" data-section="homework" aria-pressed="false">Задания</button>
+      <button type="button" class="tab-button" data-endpoint="events" data-section="events" aria-pressed="false">Мероприятия</button>
+      <button type="button" class="tab-button" data-endpoint="useful" data-section="useful" aria-pressed="false">Полезное</button>
+    </nav>
     <main class="app-main" id="main-content">
-      <section id="state-loading" class="state-card" aria-live="polite"><div class="spinner" aria-hidden="true"></div><h2 class="state-title">Собираем твой учебный день…</h2><p class="state-subtitle">Загружаем только демонстрационные материалы</p></section>
+      <div class="section-heading"><h2 id="section-title">Расписание</h2><p id="section-description">Время занятий, предметы и изменения.</p></div>
+      <div id="subfilters" class="subfilters" hidden></div>
+      <section id="state-loading" class="state-card" aria-live="polite"><h2 class="state-title">Загружаем материалы</h2><p class="state-subtitle">Это займёт несколько секунд.</p></section>
       <section id="state-error" class="state-card state-error" hidden role="alert"><h2 id="error-title" class="state-title">Не удалось загрузить раздел</h2><p id="error-message" class="state-subtitle"></p><button type="button" id="retry-button" class="action-button">Попробовать ещё раз</button></section>
       <section id="view-list" class="view-list" hidden aria-live="polite"><div id="cards-container" class="cards-list"></div></section>
       <section id="view-detail" class="view-detail" hidden aria-label="Подробная карточка">
-        <button type="button" id="back-button" class="back-button">← Назад к списку</button>
+        <button type="button" id="back-button" class="back-button">Назад к списку</button>
         <article class="detail-card"><span id="detail-badge" class="pill" hidden></span><h2 id="detail-title" tabindex="-1"></h2><p id="detail-subtitle" class="detail-subtitle"></p><p id="detail-meta" class="detail-meta" hidden></p><div id="detail-tags" class="detail-tags" hidden></div><p id="detail-body" class="detail-body"></p><div id="detail-media" class="detail-media"></div>
-          <button type="button" id="join-button" class="action-button" hidden>Пойду · попробовать</button><p id="demo-action-status" class="demo-action-status" role="status"></p>
-          <section id="detail-report-box" class="report-box" hidden><h3>📸 Как это было</h3><p id="detail-report-body"></p><a id="detail-report-link" class="external-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Открыть материал ↗</a></section>
-          <a id="detail-link" class="external-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Открыть полезную ссылку ↗</a>
+          <button type="button" id="join-button" class="action-button" hidden>Записаться в примере</button><p id="demo-action-status" class="demo-action-status" role="status"></p>
+          <section id="detail-report-box" class="report-box" hidden><h3>Итоги мероприятия</h3><p id="detail-report-body"></p><a id="detail-report-link" class="external-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Открыть материал</a></section>
+          <a id="detail-link" class="external-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Открыть ссылку</a>
           <section id="detail-files-box" class="files-box" hidden><h3>Вложения</h3><ul id="detail-files-list" class="files-list"></ul></section>
         </article>
       </section>
-      <noscript><p class="state-card">Для переключения разделов включи JavaScript. Авторизация и MAX ID не требуются.</p></noscript>
+      <noscript><p class="state-card">Для переключения разделов включите JavaScript. Регистрация не требуется.</p></noscript>
     </main>
-    <footer class="footer"><span>✦ Подземелье знаний</span><p>Демонстрационный прототип для хакатона. Это самостоятельный сайт, не MAX mini-app.</p><p>Записи на события и другие пробные действия не сохраняются на сервере.</p><a href="./CREDITS.md">Источники демонстрационных медиа</a></footer>
+    <footer class="footer"><strong>Подземелье знаний</strong><p>Самостоятельный сайт для демонстрации проекта. Пробные действия не сохраняются на сервере.</p><a href="./CREDITS.md">Источники медиа</a></footer>
   </div>
   <script src="./app.js" defer></script>
 </body>

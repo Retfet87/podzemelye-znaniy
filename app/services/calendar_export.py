@@ -24,12 +24,12 @@ def fold(line):
     return '\r\n'.join(parts + [chunk])
 
 
-def calendar(items):
+def calendar(items, *, stamp=None):
     lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Podzemelye//MAX calendar//RU',
              'CALSCALE:GREGORIAN', 'BEGIN:VTIMEZONE', 'TZID:Europe/Samara',
              'BEGIN:STANDARD', 'DTSTART:20141026T020000', 'TZOFFSETFROM:+0400',
              'TZOFFSETTO:+0400', 'TZNAME:+04', 'END:STANDARD', 'END:VTIMEZONE']
-    stamp = datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')
+    stamp = (stamp or datetime.now(UTC)).astimezone(UTC).strftime('%Y%m%dT%H%M%SZ')
     for key, title, start, end, location, description in items:
         uid = sha256(key.encode()).hexdigest() + '@podzemelye'
         lines += ['BEGIN:VEVENT', 'UID:' + uid, 'DTSTAMP:' + stamp,
@@ -42,7 +42,7 @@ def calendar(items):
     return ('\r\n'.join(fold(line) for line in lines) + '\r\n').encode('utf-8')
 
 
-def schedule_calendar(rows):
+def schedule_calendar(rows, *, stamp=None):
     items = []
     for day, group, version, anchor, pair, parity, subject, teacher, room, note in rows:
         if version is None:
@@ -64,7 +64,7 @@ def schedule_calendar(rows):
                       ' · '.join(x for x in (teacher, note) if x)))
     if not items:
         raise ValueError('На выбранную неделю занятий нет. Файл не создан.')
-    return calendar(items)
+    return calendar(items, stamp=stamp)
 
 
 def event_calendar(event_id, row):

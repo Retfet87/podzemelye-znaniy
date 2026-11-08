@@ -1,5 +1,7 @@
 """Acceptance of imported team UI, strict API and independent public fixtures."""
 import json
+import hashlib
+import re
 from pathlib import Path
 import tempfile
 import os
@@ -89,6 +91,25 @@ with patch.object(b.json,'loads',return_value=d):
 '''
         result=subprocess.run([sys.executable,'-O','-c',code],cwd=ROOT,env={'PATH':os.defpath},capture_output=True)
         self.assertEqual(result.returncode,0)
+
+    def test_release_public_ui_and_json_have_no_decorative_emoji(self):
+        emoji=re.compile('[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D]')
+        with tempfile.TemporaryDirectory() as tmp:
+            output=build(Path(tmp)/'site')
+            for name in ('index.html','app.js','data/demo.json'):
+                self.assertIsNone(emoji.search((output/name).read_text()),name)
+            html=(output/'index.html').read_text()
+            for phrase in ('без лишних поисков','Меньше поисков','ХАКАТОН 2026'):
+                self.assertNotIn(phrase,html)
+
+    def test_release_site_build_is_byte_reproducible(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            first=build(Path(tmp)/'one');second=build(Path(tmp)/'two')
+            hashes=lambda root: {str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob('*') if p.is_file()}
+            self.assertEqual(hashes(first),hashes(second))
+            calendar=(first/'assets/demo-week.ics').read_text()
+            self.assertEqual(calendar.count('BEGIN:VEVENT'),12)
+            self.assertIn('DTSTAMP:20261108T000000Z',calendar)
 
     def test_build_refuses_unknown_output_files_and_source_directory(self):
         with tempfile.TemporaryDirectory() as tmp:

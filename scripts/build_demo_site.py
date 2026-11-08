@@ -1,7 +1,8 @@
 """Build only public synthetic assets. Never reads config, tokens or databases."""
 import argparse
 import json
-from datetime import datetime, timedelta
+import re
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 import shutil
 
@@ -26,6 +27,7 @@ def dataset():
             for item in value: walk(item)
         elif isinstance(value, str):
             require('postgresql://' not in value and 'X-Max-Init-Data' not in value)
+            require(not re.search('[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D]', value), 'Decorative emoji in public fixture')
     walk(data)
     for section in data['sections'].values():
         require(section['demo'] is True and bool(section['cards']))
@@ -64,7 +66,7 @@ def build(destination=None):
     monday = datetime(2026,11,9,tzinfo=SAMARA).date()
     rows = [(monday+timedelta(days=i),'ДЕМО-11',1,monday,lesson['pair'],'all',lesson['subject'],lesson['teacher'],lesson['room'],'Не официальное расписание')
             for i, card in enumerate(dataset()['sections']['schedule']['cards']) for lesson in card['lessons']]
-    (target/'assets/demo-week.ics').write_bytes(schedule_calendar(rows))
+    (target/'assets/demo-week.ics').write_bytes(schedule_calendar(rows, stamp=datetime(2026,11,8,tzinfo=UTC)))
     return target
 
 
