@@ -2,6 +2,7 @@ FROM python:3.12-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
+LABEL org.opencontainers.image.source="https://github.com/Retfet87/podzemelye-znaniy"
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates tzdata ffmpeg \

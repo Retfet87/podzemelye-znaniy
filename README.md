@@ -8,9 +8,9 @@
 
 ## Версия для сдачи
 
-Используй ветку `release/hackathon-final-2026-11-08`, PR №3. **Main пока устарела, репозиторий PRIVATE.** До передачи обычной ссылки жюри владелец должен отдельно решить вопрос доступа и объединения проверенного PR. Сам агент main/доступ не меняет. Рабочий Mac-бот пока остаётся на 581dd2b: новый UX подготовлен отдельно и требует согласованного обновления.
+Актуальный выпускаемый код — **main**; релизная ветка release/hackathon-final-2026-11-08 сохранена. SHA проверяется на странице GitHub Actions. Точное содержимое Docker-образа задаётся digest, а не подвижным тегом latest. Git push сам по себе не обновляет запущенный Mac-процесс.
 
-Полная инструкция — [DEPLOYMENT.md](DEPLOYMENT.md), Mac — [START_HERE.md](START_HERE.md), результаты — [VALIDATION.md](VALIDATION.md), актуальная сверка команды — [SUBMISSION.md](SUBMISSION.md).
+Короткая карта кода — [ARCHITECTURE.md](ARCHITECTURE.md). Запуск и восстановление — [DEPLOYMENT.md](DEPLOYMENT.md), Mac — [START_HERE.md](START_HERE.md), результаты — [VALIDATION.md](VALIDATION.md). SUBMISSION.md содержит историческую сверку до разрешённого финального выпуска.
 
 ## Требования и конфигурация
 
@@ -76,7 +76,13 @@ docker run --init --rm --name podzemelye-bot --stop-signal SIGINT --network podz
 
 Проверка: `docker compose --env-file .env.docker -p podzemelye-real logs --tail 30 bot`. Остановка Compose: `docker compose --env-file .env.docker -p podzemelye-real stop bot`. Для прямого run: `docker stop --timeout 50 podzemelye-bot`. Том pgdata сохраняет все данные и bytea-вложения; не используй down --volumes на настоящей базе. Копирование/восстановление — DEPLOYMENT.md.
 
-CI собирает образ в чистом Linux, выполняет PostgreSQL/миграции/smoke/recreate/restore и сохраняет **именно проверенный образ** как артефакт `podzemelye-bot-<SHA>` на странице успешного Actions run. Это готовый linux/amd64 image в архиве, не только Dockerfile; для Apple Silicon нужна эмуляция amd64. Публичная публикация GHCR не выполняется. Артефакт приватен вместе с репозиторием и хранится 14 дней — владелец должен скачать его для сдачи.
+CI собирает образ в чистом Linux, выполняет PostgreSQL/миграции/smoke/recreate/restore и сохраняет **именно проверенный образ** как артефакт `podzemelye-bot-<SHA>` на странице успешного Actions run. Это готовый linux/amd64 image в архиве, не только Dockerfile; для Apple Silicon нужна эмуляция amd64. Артефакт хранится 14 дней; долговременный образ публикуется в GHCR после проверки main. Команда ниже загружает готовый образ; тег полного main SHA или digest из Actions фиксирует нужную версию:
+
+```sh
+docker pull ghcr.io/retfet87/podzemelye-znaniy:latest
+```
+
+Запуск загруженного образа: используй в команде docker run выше `ghcr.io/retfet87/podzemelye-znaniy:latest` вместо локального тега. Сохраняются те же env-file, сеть и единственный poller.
 
 После скачивания и распаковки ZIP артефакта:
 
