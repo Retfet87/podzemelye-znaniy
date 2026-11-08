@@ -104,12 +104,12 @@ docker compose --env-file .env.demo -f compose.demo.yml -p podzemelye-demo-revie
 ## Проверки и показ
 
 ```sh
-python -m scripts.test_offline
+.venv/bin/python -m scripts.test_offline
 node scripts/test_frontend.mjs
-python -m scripts.build_demo_site
+.venv/bin/python -m scripts.build_demo_site
 sh scripts/check_docker.sh
 ```
 
-Полный набор на отдельно подготовленной маркерованной PostgreSQL: `python -m scripts.test_isolated`. Отдельный smoke: `TEST_DATABASE_URL=... python -m scripts.smoke_test` (только собственная *_test база). Offline намеренно пропускает PostgreSQL/часть медиа; пропуски не считаются успешными тестами. Источник реального XLS задаётся AKVT_TEST_XLS. Не запускать тесты с рабочей конфигурацией.
+Полный набор на отдельно подготовленной маркерованной PostgreSQL: `.venv/bin/python -m scripts.test_isolated`. Отдельный smoke: `TEST_DATABASE_URL=... .venv/bin/python -m scripts.smoke_test` (только собственная *_test база). Offline намеренно пропускает PostgreSQL/часть медиа; пропуски не считаются успешными тестами. Источник реального XLS задаётся AKVT_TEST_XLS. Не запускать тесты с рабочей конфигурацией.
 
 Сценарий защиты на 6 минут и автономный резерв — UX_DEMO.md. Телефонная приёмка — MAX_CHECKLIST.md. TLS и проверки прав не отключаются. Long Polling сохранён для прототипа; официальный MAX рекомендует Webhook для production. Массовая рассылка, seed рабочей базы, автоматический merge/deploy и подключение публичного сайта к личным данным не выполняются.
