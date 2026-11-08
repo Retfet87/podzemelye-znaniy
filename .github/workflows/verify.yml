@@ -24,6 +24,7 @@ jobs:
           DOCKER_IMAGE_ARCHIVE: ${{ runner.temp }}/podzemelye-bot.tar.gz
         run: sh scripts/check_docker.sh
       - name: Save tested Docker image
+        if: github.event_name == 'push'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: podzemelye-bot-${{ github.sha }}
