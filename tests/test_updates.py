@@ -10,12 +10,14 @@ import psycopg
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
 
-from db import migrate, local_dsn
-from main import MaxError, handle_update
-from schedule_import import Lesson, parse_xls
-from schedule_notifications import deliver_one
-from schedule_updates import admin_id, compare, day_slots, decide, preview
-from schedule_view import SAMARA
+from app.config import admin_id
+from app.db import local_dsn, migrate
+from app.max_api.client import MaxError
+from app.notifications.worker import deliver_one
+from app.services.schedule_parser import Lesson, parse_xls
+from app.services.schedule_publisher import compare, day_slots, decide, preview
+from app.timeutil import SAMARA
+from helpers import handle_update
 from test_db import TEST_URL, LegacyFixtureStore, remove_homework_fixture
 from test_main import message_update
 
@@ -50,7 +52,7 @@ class UpdateTests(unittest.TestCase):
         token = uuid4()
         update = message_update(f"/schedule_confirm {token}")
         client, store = Mock(), Mock()
-        with patch("main.decide", return_value="applied") as operation:
+        with patch("app.handlers.admin.decide", return_value="applied") as operation:
             for chat_type, admin in (("chat", 10), ("channel", 10), ("dialog", None), ("dialog", 11)):
                 update["message"]["recipient"]["chat_type"] = chat_type
                 handle_update(client, store, update, admin)
@@ -112,10 +114,13 @@ class PublicationTests(unittest.TestCase):
     def test_concurrent_confirmation_stale_and_repeat_import(self):
         token, changes, _, _ = self.draft()
         other = self.draft()[0]
+        self.assertEqual(token, other)  # Повторная проверка должна использовать тот же неподтверждённый предпросмотр.
+        stale = self.draft([lesson(room="ауд. 99"), self.rows[1]])[0]
         self.assertEqual({c["kind"] for c in changes}, {"changed"})
         with ThreadPoolExecutor(max_workers=2) as pool:
             self.assertEqual(list(pool.map(self.decision, [token, token])), ["applied", "applied"])
-        self.assertEqual(self.decision(other), "stale")
+        self.assertEqual(self.decision(other), "applied")
+        self.assertEqual(self.decision(stale), "stale")
         self.assertEqual(self.draft()[:2], (None, []))
         self.assertEqual(self.query("SELECT user_id, status FROM schedule_notifications"), [(101, "pending")])
         self.assertEqual(self.query("SELECT count(DISTINCT id) FROM schedule_changes"), [(2,)])
@@ -174,7 +179,7 @@ class PublicationTests(unittest.TestCase):
                          "(source_sha256, valid_from, valid_to, numerator_monday)")
             conn.execute("DELETE FROM schema_migrations WHERE version = %s",
                          ("003_schedule_updates.sql",))
-        self.assertEqual(migrate(self.store), ["003_schedule_updates.sql", "004_homework.sql", "005_community.sql"])
+        self.assertEqual(migrate(self.store), ["003_schedule_updates.sql", "004_homework.sql", "005_community.sql", "006_ux.sql", "007_form_drafts.sql"])
         self.assertEqual(self.store.registered_group(101), "А-01")
         self.assertEqual(self.store.schedule(101, [self.day])[0][8], "ауд. 12")
         self.assertEqual(self.query("SELECT scope FROM schedule_imports"), [("base",)])

@@ -1,0 +1,66 @@
+name: Verify bot and Docker
+on:
+  push:
+    branches: [main, 'review/**', 'release/**']
+  pull_request:
+    branches: [main, 'review/**', 'release/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-docker:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Test frontend state and response races
+        run: node scripts/test_frontend.mjs
+      - name: Build standalone public demo
+        run: python -m scripts.build_demo_site
+      - name: Test without a MAX bot token
+        env:
+          DOCKER_IMAGE_ARCHIVE: ${{ runner.temp }}/podzemelye-bot.tar.gz
+        run: sh scripts/check_docker.sh
+      - name: Save tested Docker image
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: podzemelye-bot-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/podzemelye-bot.tar.gz
+            ${{ runner.temp }}/podzemelye-bot.tar.gz.sha256
+          compression-level: 0
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Publish tested main image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: registry
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker tag podzemelye-znaniy:submission "$image:$GITHUB_SHA"
+          docker tag podzemelye-znaniy:submission "$image:latest"
+          docker push "$image:$GITHUB_SHA"
+          docker push "$image:latest"
+          reference=$(docker image inspect --format '{{index .RepoDigests 0}}' "$image:$GITHUB_SHA")
+          printf 'reference=%s\n' "$reference" >> "$GITHUB_OUTPUT"
+          printf 'Docker image from %s: `%s`\n' "$GITHUB_SHA" "$reference" >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify public image pull
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/anonymous-docker
+          IMAGE_REFERENCE: ${{ steps.registry.outputs.reference }}
+        run: |
+          set -eu
+          mkdir -p "$DOCKER_CONFIG"
+          docker pull "$IMAGE_REFERENCE"
+          docker run --rm "$IMAGE_REFERENCE" python -c 'import app.bootstrap; import app.handlers; import psycopg; import xlrd; import PIL'

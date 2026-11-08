@@ -1,0 +1,32 @@
+{
+  "baseline_commit": "ab090f2",
+  "total": 184,
+  "passed": 183,
+  "skipped": 1,
+  "failed": 0,
+  "skip_reason": "real MP4: ffmpeg unavailable",
+  "seconds": 10.33,
+  "environment": "new isolated native PostgreSQL 16.9, restricted validation/demo roles; synthetic MAX",
+  "pool_tests": 16,
+  "health_lifecycle_tests": 12,
+  "covered": [
+    "migration through pool size 1",
+    "commit rollback SQL errors",
+    "session advisory locks through commit",
+    "failed reset discard",
+    "retained connection after pool shutdown",
+    "client settings reset",
+    "backend termination recovery",
+    "worker dedup and send failure",
+    "pool concurrency bound",
+    "demo privileges seed cleanup",
+    "mini-app loopback HTTP auth scope"
+  ],
+  "not_repeated": [
+    "physical backup restore from C8",
+    "Docker",
+    "real MAX"
+  ],
+  "production_changed": false,
+  "push_merge_deploy": false
+}

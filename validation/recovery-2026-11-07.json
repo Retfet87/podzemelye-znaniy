@@ -1,0 +1,37 @@
+{
+  "postgres_version": "16.9",
+  "dataset": "synthetic validation records only",
+  "restart": "passed",
+  "physical_archive_restore": "passed",
+  "tables_compared": 15,
+  "binary_attachments": [
+    "homework_files",
+    "useful_files",
+    "event_media"
+  ],
+  "restored_read_write": "passed",
+  "source_unchanged_after_restore_write": true,
+  "archive_name": "validation-cold-backup.tar.gz",
+  "archive_bytes": 169144871,
+  "archive_sha256": "b7f7313fa05c71692eeaf2291d4fa218e806d898e86bf350e43344c7ebf91641",
+  "table_snapshots": {
+    "schema_migrations": "8f838f05aa70a9e248a7e48c7cdd81d87d21885f5d0c0caedaa2c778e0fc1fd0",
+    "users": "b0c529b7a6eb4cf6b318073f62c59a021b6f5dcdd4af26b860473012c68fbb66",
+    "groups": "a89e8825c96d2136605d7b743ed7fa12bb51b1553b56e77eeb556dc3867bdcd4",
+    "schedule_imports": "a95a39f2eb1cbef116a8829bb960b0e8ea86eca277093e928348006b6cbb6cb6",
+    "schedule_groups": "20efa567a27df3ed9e67bf2a3e105f4cd48ea360c2de07236556898c578a9bdb",
+    "schedule_lessons": "37a70b96598bdb821f14f22874126c22962bb70724ceb83e99066f1c4c095be3",
+    "homework": "c81cc5a376a36c2390ded8359898e8197aa76e21c01feb9db2d53febe861143b",
+    "homework_files": "8ab9f2afa4a028fdcfdbfc455e2238509b3d88156eb3db588f18a61701775f2d",
+    "useful_materials": "65afeeafffd69be6320b101ee16254d9898903a133541861ad7392aa2ceb54df",
+    "useful_files": "321b6bdd7a876207976320a6e3e23393f0f36d68c809e88be01c0cd53f2d2666",
+    "events": "c893ea1a6bc31cce5d0505948cce35fe877526551e25afe67d2b9947d4d749b0",
+    "event_media": "5c13c383373f6f4483b0246c8478619464a0201be51c68d0408cd4530a31df72",
+    "schedule_notifications": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "homework_notifications": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "event_notifications": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "required_restore_directory_mode": "0700",
+  "logical_pg_dump_restore": "not tested: tools unavailable",
+  "docker_restart": "not tested: Docker unavailable"
+}

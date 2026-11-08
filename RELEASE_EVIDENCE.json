@@ -1,0 +1,46 @@
+{
+  "foundation": "126d21ba6a59eced60f429fe62c777c2950b19c8",
+  "implementation_commit": "8f24076",
+  "branch": "release/hackathon-final-2026-11-08",
+  "site_url": "https://podzemelye-znaniy-demo.chipperloon.chatgpt.site",
+  "site_version": 2,
+  "site_source_commit": "cf48f530b7bf87ecd5fd4376c9f47c8a64616f56",
+  "native": {
+    "total": 212,
+    "passed": 211,
+    "skipped": 1,
+    "failed": 0
+  },
+  "docker": {
+    "total": 212,
+    "passed": 208,
+    "skipped": 4,
+    "failed": 0
+  },
+  "offline": {
+    "total": 212,
+    "passed": 126,
+    "skipped": 86,
+    "failed": 0
+  },
+  "javascript_passed": 8,
+  "smoke_passed": 1,
+  "browser_widths": [
+    320,
+    768,
+    1280
+  ],
+  "deployment_match": "9 assets exact; HTML exact excluding one Cloudflare hosting injection",
+  "static_sha256": {
+    "CREDITS.md": "6fef5bead22b9308aabe7e093ad4ed2567e4892175531a51a7a0213bd58e3b50",
+    "app.js": "f9b72fe22accd8667bd6663979f54a8294c7d7847e937e2a58aff9f98baf08de",
+    "assets/demo-flower.mp4": "0cd83d944a6ca7822b4a8306cecc60a36e859b041f6702c6a1ad9ead78924451",
+    "assets/demo-task.txt": "a33a19db9e31e8cf18b7fd80807b8a032876fb91d0d23b9ed26ef499a89d8423",
+    "assets/demo-week.ics": "d2c27be11c0f7f4a829cdf4251dd6f77f420b568be5a05a220d5c2002efc1683",
+    "assets/dungeon.png": "45bf524560733b9235da6fd4a7cf424adb5938f325f517ccb9449e6fe9fbaba1",
+    "assets/icon.svg": "0b7be516df1c27f2c289a5c8dd43d06db07011e66cf378f887997c30dcb45d99",
+    "data/demo.json": "690636cafa510fcbb6644f3d42655540778ad671f749bdbc4ec845fee830cb31",
+    "index.html": "8bf88c0b06b3348f49b6e8db8f5a9ee6010b31273ca77b3e231cec13807d7c2c",
+    "style.css": "de74c931ba9255d1bd3e4b9f3cb0228dc223e17a917516c53c379ad5aee9b4aa"
+  }
+}

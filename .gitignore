@@ -10,3 +10,11 @@ __pycache__/
 backups/
 *.dump
 *.tar.gz
+bolshoe-raspisanie*.xls
+!.env.docker.example
+
+# Demo switch is operational state, never enabled by checkout
+demo-control/
+
+# Public build output (source and synthetic fixtures are tracked)
+dist/

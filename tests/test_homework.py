@@ -6,12 +6,16 @@ from uuid import uuid4
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
 
-from db import migrate
-from homework import HomeworkStore, SAMARA, parse_deadline
-from homework_dialog import Draft, HomeworkDialog, MAX_ID
-from homework_files import FILE_LIMIT, cdn_target, receive_file, transfer, upload_file, validate_data
-from main import MaxClient, MaxError, handle_update
-from schedule_notifications import deliver_one
+from app.db import migrate
+from app.handlers.common import MAX_ID
+from app.handlers.homework import Draft, HomeworkHandler
+from app.max_api.client import MaxClient, MaxError
+from app.max_api.files import cdn_target, receive_file, transfer, upload_file
+from app.notifications.worker import deliver_one
+from app.repositories.homework import HomeworkStore
+from app.services.file_validation import FILE_LIMIT, validate_data
+from app.timeutil import SAMARA, parse_deadline
+from helpers import handle_update
 from test_db import TEST_URL, LegacyFixtureStore, remove_homework_fixture
 from test_main import message_update
 from test_updates import lesson
@@ -42,7 +46,7 @@ class HomeworkInputTests(unittest.TestCase):
         attachment = {"type": "file", "payload": {
             "url": "https://fu.oneme.ru/file", "filename": "a.txt", "size": 3,
         }}
-        with patch("homework_files.transfer", return_value=b"abc") as download:
+        with patch("app.max_api.files.transfer", return_value=b"abc") as download:
             self.assertEqual(receive_file(None, attachment), ("a.txt", b"abc"))
             self.assertEqual(download.call_args.kwargs["limit"], FILE_LIMIT)
             attachment["payload"]["size"] = FILE_LIMIT + 1
@@ -53,7 +57,7 @@ class HomeworkInputTests(unittest.TestCase):
                           "payload": {"url": "https://fd.oneme.ru/file", "token": "test"}}
             self.assertEqual(receive_file(None, actual_max), ("a.txt", b"abc"))
             self.assertEqual(download.call_count, 2)
-        with patch("homework_files.http.client.HTTPSConnection") as connect:
+        with patch("app.max_api.files.http.client.HTTPSConnection") as connect:
             response = connect.return_value.getresponse.return_value
             response.status = 302
             with self.assertRaises(ValueError):
@@ -62,7 +66,7 @@ class HomeworkInputTests(unittest.TestCase):
             connect.return_value.close.assert_called_once()
         client = Mock()
         client.request.return_value = {"url": "https://fu.oneme.ru/upload"}
-        with patch("homework_files.transfer", return_value=b'{"token":"ready"}') as upload:
+        with patch("app.max_api.files.transfer", return_value=b'{"token":"ready"}') as upload:
             self.assertEqual(upload_file(client, "a.txt", b"abc"),
                              {"type": "file", "payload": {"token": "ready"}})
             self.assertIn(b'filename="a.txt"', upload.call_args.kwargs["body"])
@@ -74,7 +78,7 @@ class HomeworkInputTests(unittest.TestCase):
         attachment = [{"type": "file", "payload": {"token": "test"}}]
         with patch.object(client, "request", side_effect=[
             MaxError("processing", status=400, attachment_pending=True), {"message": {}},
-        ]) as request, patch("main.time.sleep") as sleep:
+        ]) as request, patch("app.max_api.client.time.sleep") as sleep:
             client.send_message(recipient, "file.txt", attachments=attachment)
             self.assertEqual(request.call_count, 2)
             sleep.assert_called_once_with(1)
@@ -108,7 +112,7 @@ class HomeworkTests(unittest.TestCase):
         self.member = self.db(11)
         self.outsider = self.db(12)
         self.client = Mock()
-        self.dialog = HomeworkDialog()
+        self.dialog = HomeworkHandler()
 
     def db(self, user):
         return HomeworkStore(self.store, user, 90)
@@ -123,10 +127,16 @@ class HomeworkTests(unittest.TestCase):
                         deadline=datetime.now(SAMARA) + timedelta(hours=hours) if hours else None)
         return Draft(**(defaults | fields))
 
+    def test_registered_super_admin_can_manage_other_groups(self):
+        self.store.start(90)
+        self.store.choose_group(90, self.a)
+        self.assertEqual({row[0] for row in self.super.groups(True)}, {self.a, self.b})
+        self.assertEqual([row[0] for row in self.super.groups(False)], [self.a])
+
     def test_stage_four_upgrade_preserves_data_and_runs_once(self):
         with self.store.connect() as conn:
             remove_homework_fixture(conn)
-        self.assertEqual(migrate(self.store), ["004_homework.sql", "005_community.sql"])
+        self.assertEqual(migrate(self.store), ["004_homework.sql", "005_community.sql", "006_ux.sql", "007_form_drafts.sql"])
         self.assertEqual(migrate(self.store), [])
         self.assertEqual(self.store.registered_group(10), "А-01")
         self.assertEqual(self.member.subjects(self.a, False), [("Математика",)])
@@ -265,15 +275,15 @@ class HomeworkTests(unittest.TestCase):
         self.click(11, "keep")
         self.click(11, "keep")
         self.click(11, "keep")
-        self.client.receive_homework_file.return_value = ("readme.txt", b"abc")
+        self.client.receive_file.return_value = ("readme.txt", b"abc")
         self.event(11, attachments=[{"type": "file"}])
         self.click(11, "done")
         self.click(11, "yes")
         self.assertEqual(self.member.file(task, 2, 1), ("readme.txt", b"abc"))
         self.event(12, payload=f"file:{task}:2:1")
-        self.client.upload_homework_file.assert_not_called()
+        self.client.upload_file.assert_not_called()
         self.event(11, payload=f"file:{task}:2:1")
-        self.client.upload_homework_file.assert_called_once_with("readme.txt", b"abc")
+        self.client.upload_file.assert_called_once_with("readme.txt", b"abc")
         self.event(11, payload=f"delete:{task}")
         self.click(11, "cancel")
         self.assertIsNotNone(self.member.get(task))
