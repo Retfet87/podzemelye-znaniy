@@ -1,5 +1,7 @@
 # Подземелье знаний
 
+**Запуск на этом Mac:** [START_HERE.md](START_HERE.md), проверка `./scripts/preflight.sh`, запуск `./scripts/start_mac.sh`. Рабочая база пока требует явной миграции 007; автоматического обновления нет.
+
 **Готовый публичный сайт:** [https://podzemelye-znaniy-demo.chipperloon.chatgpt.site](https://podzemelye-znaniy-demo.chipperloon.chatgpt.site). Открывается без регистрации; только вымышленные данные.
 
 Два продукта для хакатона: MAX-бот с PostgreSQL и самостоятельный демонстрационный сайт. Финальная ветка — `release/hackathon-final-2026-11-08`, основа `126d21b`. Разработки команды из `kruto` и `bot` сверены по функциям: [BRANCH_INVENTORY.md](BRANCH_INVENTORY.md). Независимые истории Git не объединялись.
