@@ -14,6 +14,7 @@ COPY migrations/ ./migrations/
 COPY certificates/russian_trusted_root_ca.pem ./certificates/
 COPY main.py manage.py seed_demo.py seed_useful.py seed_akvt.py demo_bot.py mini_app.py ./
 COPY web/ ./web/
+COPY demo-site/ ./demo-site/
 COPY fixtures/demo/ ./fixtures/demo/
 COPY scripts/ ./scripts/
 COPY assets/ ./assets/

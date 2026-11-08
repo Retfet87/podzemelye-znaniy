@@ -59,9 +59,10 @@ class TodayService:
     def __init__(self,db,schedules):
         self.db,self.schedules=db,schedules
 
-    def home(self,actor,group,*,now=None):
+    def home(self,actor,group,*,now=None,rows=None):
         now=(now or datetime.now(SAMARA)).astimezone(SAMARA)
-        rows=self.schedules.for_user(actor,[now.date()])
+        if rows is None:
+            rows=self.schedules.for_user(actor,[now.date()])
         until=datetime.combine(now.date()+timedelta(days=2),time.min,SAMARA)
         count=HomeworkStore(self.db,actor,None).due_count(now,until)
         due=f'Сегодня и завтра: {count} заданий со сроком.' if count else 'Сроков заданий на сегодня и завтра нет.'

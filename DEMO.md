@@ -1,3 +1,5 @@
+> 8 ноября добавлен самостоятельный публичный сайт: https://podzemelye-znaniy-demo.chipperloon.chatgpt.site . Он работает на отдельном синтетическом JSON без MAX/БД. Инструкция ниже относится к защищённому demo-окружению самого бота; его seed не нужен для сайта. Общая репетиция двух продуктов — UX_DEMO.md.
+
 # Изолированный демонстрационный режим
 
 Состояние после стабилизации: код, seed/cleanup/rollback/concurrency и права demo-роли проверены на отдельной native PostgreSQL 16.9. Loopback HTTP подтверждает allowlist и hot disable. Docker-сети/образ/entrypoint и настоящий MAX пока не проверены; до них не считать окружение готовым к показу. Точный отчёт — [VALIDATION.md](VALIDATION.md).

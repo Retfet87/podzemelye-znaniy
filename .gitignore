@@ -15,3 +15,6 @@ bolshoe-raspisanie*.xls
 
 # Demo switch is operational state, never enabled by checkout
 demo-control/
+
+# Public build output (source and synthetic fixtures are tracked)
+dist/

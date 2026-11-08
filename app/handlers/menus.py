@@ -1,5 +1,10 @@
 """Главное меню, меню расписания и меню домашних заданий."""
+import os
+
 from app.max_api.keyboards import callback_button, inline_keyboard
+from app.services.validation import validate_public_site_url
+
+_SITE = [[callback_button("🌐 ДЕМО-сайт", "schedule:website")]] if validate_public_site_url(os.environ.get("PUBLIC_DEMO_SITE_URL", "")) else []
 
 HOME = inline_keyboard([
     [callback_button("Сегодня", "schedule:today"), callback_button("Завтра", "schedule:tomorrow")],
@@ -7,8 +12,8 @@ HOME = inline_keyboard([
     [callback_button("📝 Домашние задания", "hw:open")],
     [callback_button("🎉 Мероприятия", "community:events:0"),
      callback_button("📚 Полезное", "community:useful")],
-    [callback_button("🔔 Уведомления", "hw:prefs")],
-], home=False)
+    [callback_button("🔔 Уведомления заданий", "hw:prefs:home")],
+] + _SITE, home=False)
 
 _PERIODS = [
     [callback_button("Сегодня", "schedule:today"), callback_button("Завтра", "schedule:tomorrow")],

@@ -88,3 +88,13 @@
 - 202 total / 201 passed / 1 skipped / 0 failed на отдельной PostgreSQL; плюс 1 smoke passed. Ручной MAX не выполнялся, рабочая среда не изменялась. Документы: HANDOFF_TO_TEAM.md, INTEGRATIONS.md, DEMO.md, DEPLOYMENT.md.
 
 - Docker подтверждён в GitHub Actions для `9501546`: 202 total / 198 passed / 4 skipped (нет XLS) / 0 failed, плюс smoke, recreate/resume и настоящий one-shot/scheduled restore. Реальный MP4 прошёл в контейнере, XLS-проверки прошли отдельно native. Обычный push C1–C10 выполнен, PR №1 обновлён без merge/deploy. Локально Docker отсутствует, native test cluster остановлен; подробности в VALIDATION.md.
+
+## C11 — два готовых продукта
+
+- Отдельная ветка review/final-demo-2026-11-08 от b3fdbe8. Интерфейс kruto перенесён выборочно, без merge независимых историй.
+- Строгая авторизация защищённого API сохранена, полезное/карточки/история добавлены. Local fallback/автоматический WSGI/несуществующие интерфейсы тестов не перенесены. Новые DB-тесты проверяют личные и групповые границы.
+- Самостоятельный demo-site → dist: четыре раздела, все 32 карточки, PNG/MP4/файлы/.ics, две темы, ответ последней вкладки, пробный RSVP только в памяти. Нет MAX Bridge, токена, /api или подключения к PostgreSQL.
+- 210 total / 209 passed / 1 skipped / 0 failed native; дополнительно 8 JS и 1 smoke passed. Браузерная проверка 320/1280 px и воспроизведение видео выполнены, настоящий MAX не вызывался.
+- После подтверждения владельца опубликована публичная версия 1: https://podzemelye-znaniy-demo.chipperloon.chatgpt.site . Проверка без cookies: HTML/JSON HTTP 200. Docker и окончательные SHA/PR — VALIDATION.md и финальный отчёт.
+
+- Финальные push/PR Actions bf91b92 зелёные: 210 total / 206 passed / 4 skipped (нет XLS) / 0 failed; 8 JS, smoke, recreate и оба restore прошли. Код в PR №2 → review/team, без merge main или обновления рабочего бота. Публичный сайт версии 1 работает без входа; native-кластер и локальный preview остановлены.

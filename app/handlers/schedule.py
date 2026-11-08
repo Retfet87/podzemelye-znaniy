@@ -1,5 +1,6 @@
 """Меню «Расписание»: сегодня, завтра, неделя."""
 import logging
+import os
 
 import psycopg
 
@@ -10,6 +11,8 @@ from app.services.schedule_formatter import PERIODS, format_schedule, requested_
 logger = logging.getLogger(__name__)
 
 SCHEDULE_TRIGGERS = {
+    "сайт": "website",
+    "/site": "website",
     "расписание": "open",
     "распис": "open",
     "пары": "open",
@@ -62,6 +65,15 @@ class ScheduleHandler(Handler):
                 if rows:
                     respond(text=format_schedule(rows), attachments=MENU)
                     return
+            elif action == "website":
+                from app.services.validation import validate_public_site_url
+                url = validate_public_site_url(os.environ.get("PUBLIC_DEMO_SITE_URL", ""))
+                if not url:
+                    respond(text="Демонстрационный сайт ещё не опубликован. Все функции бота доступны в меню.", attachments=HOME)
+                else:
+                    from app.max_api.keyboards import inline_keyboard
+                    respond(text="Демонстрационный сайт · только вымышленные данные. Откроется в обычном браузере.", attachments=inline_keyboard([[{"type":"link","text":"Открыть ДЕМО-сайт","url":url}]]))
+                return
             elif action in ("open", "back"):
                 group = ctx.users.registered_group(user_id)
                 if group:
